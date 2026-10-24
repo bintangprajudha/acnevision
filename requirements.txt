@@ -1,14 +1,17 @@
-ultralytics>=8.2.0
-onnx>=1.14.0
-onnxruntime>=1.15.0
+# AcneVision - dependensi pengembangan model
+# PyTorch CUDA dipasang terpisah: pip install torch --index-url https://download.pytorch.org/whl/cu124
+ultralytics>=8.4.0
 opencv-python>=4.8.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
+numpy
 pandas>=2.0.0
+matplotlib>=3.7.0
 Pillow>=10.0.0
 tqdm>=4.65.0
 PyYAML>=6.0
+
+# Persiapan data (scripts/data/)
 huggingface_hub>=0.20.0
-fastapi>=0.110.0
-uvicorn>=0.28.0
-python-multipart>=0.0.9
+polars
+
+# Opsional: sliced inference (scripts/predict.py --sahi)
+sahi>=0.11

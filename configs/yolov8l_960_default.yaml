@@ -1,0 +1,19 @@
+# ==============================================================================
+# AcneVision - B0: Baseline YOLOv8l @ 960px dengan setelan DEFAULT Ultralytics
+# ==============================================================================
+# Pembanding untuk E3/E4: hanya resolusi, jadwal, dan batasan hardware yang
+# disamakan. Optimizer, bobot loss, dan augmentasi memakai default Ultralytics.
+# ==============================================================================
+
+model: pretrained/yolov8l.pt
+data: data/data.yaml
+name: yolov8l_960_default
+
+# --- Disamakan dengan E3 (resolusi, jadwal, hardware, reproducibility) ---
+epochs: 100
+imgsz: 960
+batch: 4
+workers: 2
+seed: 42
+deterministic: true
+# Semua parameter lain (optimizer=auto, lr0, box/cls/dfl, mosaic, fliplr, hsv_*, scale, ...) = default

@@ -32,6 +32,7 @@ venv.bak/
 *.bin
 *.safetensors
 weights/
+pretrained/
 runs/
 outputs/
 wandb/
@@ -88,3 +89,22 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ==============================================================================
+# Karantina file usang (tinjau lalu hapus manual)
+# ==============================================================================
+_to_delete/
+
+data_tiles*/
+
+# ==============================================================================
+# Node.js (build deck presentasi)
+# ==============================================================================
+node_modules/
+package-lock.json
+
+# ==============================================================================
+# Lock file sementara Office/PowerPoint & konfigurasi lokal Claude Code
+# ==============================================================================
+~$*
+.claude/settings.local.json
