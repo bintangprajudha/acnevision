@@ -10,6 +10,7 @@
 | `EXPERIMENTS.md` | Log semua run (hipotesis, perubahan, metrik, kesimpulan) | **Setiap** run selesai, termasuk yang gagal |
 | `REPORT.md` | Laporan lengkap hasil model (+ `report/figures/`, dibuat `scripts/report.py`) | Setelah putaran eksperimen selesai |
 | `PRESENTASI.md` | Rangkuman development + konten per slide untuk `presentasi/` (dibangun `presentasi/build_deck.js`) | Saat hasil/deck berubah |
+| `../notebooks/AcneVision_Ringkasan.ipynb` | Notebook ringkasan: dataset, preprocessing, augmentasi, kurva training, evaluasi (P/R/mAP, CM, kecepatan), counting, contoh inferensi 3 varian. Hanya membaca `runs/`, jalan di CPU | Saat hasil eval/predict berubah (jalankan ulang semua sel) |
 | `RESEARCH.md` | Riset teknik peningkatan & ambang metrik dari literatur | Saat riset baru dilakukan |
 | `PANDUAN_END_TO_END.md` | Penjelasan edukatif end-to-end (preprocessing, training, tiap metrik) | Bila pipeline/protokol berubah |
 | `ROADMAP.md` | Antrian eksperimen berprioritas | Saat eksperimen selesai/ditambah |

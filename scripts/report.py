@@ -35,6 +35,8 @@ VARIANTS = [
     # Kurva training E4 tidak diplot: val-nya berisi tile (data_tiles2), tidak sebanding dengan B0/E3
     ("E4 tile-FT + SAHI", "yolov8l_960_tiles2_ft_sahi1728", None, "#e87ba4"),
     ("B0 + SAHI", "yolov8l_960_default_sahi1728", None, "#008300"),
+    # E5 = config E4 dengan init B0 (desain 2x2 init x tile-FT); dilewati bila belum dievaluasi
+    ("E5 tile-FT(B0) + SAHI", "yolov8l_960_default_tiles2_ft_sahi1728", None, "#7d53c8"),
 ]
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 

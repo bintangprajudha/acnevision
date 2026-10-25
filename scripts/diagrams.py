@@ -123,20 +123,22 @@ def fig_experiment_tree():
         return f"F1 {t['detection']['F1']:.3f} · MAE {t['counting']['MAE']:.2f}"
 
     nodes = {   # id: (x, y, judul, isi, run eval)
-        "coco": (0.02, 0.42, "YOLOv8l COCO", "pretrained", None),
-        "b0": (0.25, 0.70, "B0 baseline", "setelan default\n100 epoch", "yolov8l_960_default"),
+        "coco": (0.02, 0.50, "YOLOv8l COCO", "pretrained", None),
+        "b0": (0.25, 0.86, "B0 baseline", "setelan default\n100 epoch", "yolov8l_960_default"),
         "e3": (0.25, 0.14, "E3 tuned", "AdamW, loss & aug\n100 epoch", "yolov8l_960"),
-        "b0s": (0.50, 0.80, "B0 + SAHI", "inferensi slice", "yolov8l_960_default_sahi1728"),
+        "b0s": (0.50, 1.10, "B0 + SAHI", "inferensi slice", "yolov8l_960_default_sahi1728"),
+        "e5": (0.50, 0.81, "E5 tile-FT (B0)", "fine-tune tile 2×2\n10 epoch", "yolov8l_960_default_tiles2_ft"),
+        "e5s": (0.76, 0.81, "E5 + SAHI", "kontrol 2×2", "yolov8l_960_default_tiles2_ft_sahi1728"),
         "e3t": (0.50, 0.52, "E3 + TTA", "flip + multi-skala", "yolov8l_960_tta"),
         "e3s": (0.50, 0.24, "E3 + SAHI", "inferensi slice", "yolov8l_960_sahi1728"),
         "e4": (0.50, -0.04, "E4 tile-FT", "fine-tune tile 2×2\n10 epoch", "yolov8l_960_tiles2_ft"),
         "e4s": (0.76, -0.04, "E4 + SAHI", "terbaik", "yolov8l_960_tiles2_ft_sahi1728"),
     }
-    edges = [("coco", "b0"), ("coco", "e3"), ("b0", "b0s"), ("e3", "e3t"), ("e3", "e3s"),
-             ("e3", "e4"), ("e4", "e4s")]
+    edges = [("coco", "b0"), ("coco", "e3"), ("b0", "b0s"), ("b0", "e5"), ("e5", "e5s"),
+             ("e3", "e3t"), ("e3", "e3s"), ("e3", "e4"), ("e4", "e4s")]
     w, h = 0.2, 0.22
-    fig, ax = blank_axes((11, 5.2))
-    ax.set_ylim(-0.08, 1.08)
+    fig, ax = blank_axes((11, 6.6))
+    ax.set_ylim(-0.08, 1.38)
     for a, b in edges:
         xa, ya = nodes[a][:2]
         xb, yb = nodes[b][:2]
@@ -146,7 +148,7 @@ def fig_experiment_tree():
         body = b + (f"\n{label(run)}" if run else "")
         box(ax, x, y, w, h, t, body, fc="#fff1ef" if best else LT2, ec=CORAL if best else TEAL,
             title_size=10)
-    ax.text(0.02, 1.06, "Metrik: test, conf dipilih di val, IoU 0.5 (runs/eval/<run>/metrics.json)",
+    ax.text(0.02, 1.37, "Metrik: test, conf dipilih di val, IoU 0.5 (runs/eval/<run>/metrics.json)",
             fontsize=8.5, color=MUTED, va="top")
     save(fig, "experiment_tree.png")
 
@@ -284,7 +286,8 @@ def fig_bootstrap():
             d = 3 if key == "dF1" else 2
             shown = np.sign(m) * np.floor(abs(m) * 10 ** d + 0.5 + 1e-9) / 10 ** d   # half away from zero
             ax.text(hi, yi, "  " + f"{shown:+.{d}f}", fontsize=8,
-                    color=MUTED, ha="left", va="center")
+                    color=MUTED, ha="left", va="center", zorder=4,
+                    bbox=dict(fc=BG, ec="none", pad=0.3))   # label tetap terbaca di atas garis nol
         ax.axvline(0, color=DK1, linewidth=1)
         lo_all = min(data[p][key][1] for p in pairs)
         hi_all = max(data[p][key][2] for p in pairs)

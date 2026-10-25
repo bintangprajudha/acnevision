@@ -284,9 +284,10 @@ Irisan = 7×10 = 70; gabungan = 100+100−70 = 130; **IoU = 0,54**. Bergeser 5 p
 150, IoU = 0,33.
 
 **Mengapa penting untuk lesi kecil**: lesi 12 px yang meleset hanya 3 px sudah menurunkan IoU banyak
-(irisan 10×13=130, gabungan 208, IoU = 0,63). Pada objek besar, 3 px tidak berarti apa-apa. Ditambah
-anotasi aslinya lingkaran (batas lesi samar), IoU tinggi sulit dicapai, penyebab mAP@50-95 rendah
-(bagian 9).
+(irisan 10×13=130, gabungan 208, IoU = 0,63). Pada objek besar, 3 px tidak berarti apa-apa.
+IoU selalu dihitung antara kotak prediksi dan kotak GT YOLO, bukan lingkaran. Masalahnya, ukuran kotak GT
+berasal dari jari-jari lingkaran pilihan anotator pada lesi yang tepinya samar, jadi ukurannya berderau.
+Gabungan lesi kecil dan label berderau membuat IoU tinggi sulit dicapai, penyebab mAP@50-95 rendah (bagian 9).
 
 ### 6.2 TP, FP, FN
 
@@ -343,8 +344,8 @@ agar kurva tercatat sampai recall sejauh mungkin.
 | **mAP@50-95** | Rata-rata AP pada 10 ambang IoU: 0,50; 0,55; … 0,95 | Ukuran **ketepatan kotak**; sangat keras pada objek kecil |
 
 mAP@50-95 selalu ≤ mAP@50. Selisih besar (49,8% vs 19,1%) menandakan model *menemukan* lesi
-cukup baik tetapi kotaknya tidak pas hingga IoU tinggi, wajar karena anotasi lingkaran tidak
-punya batas tegas. Paper ACNE04-v2 sendiri mengevaluasi **counting/AUC**, bukan mAP (audit #15).
+cukup baik tetapi kotaknya tidak pas hingga IoU tinggi. Wajar, karena lesinya kecil dan ukuran kotak GT
+(dari jari-jari lingkaran anotator) tidak mengikuti batas lesi yang tegas. Paper ACNE04-v2 sendiri mengevaluasi **counting/AUC**, bukan mAP (audit #15).
 Karena itu mAP@50 + metrik counting lebih representatif untuk tujuan proyek *(opini berbasis audit)*.
 
 ### 6.6 Mengapa P/R Ultralytics ≠ P/R kita

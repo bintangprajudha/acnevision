@@ -66,13 +66,13 @@
 
 ---
 
-## B. Konten per Slide (17 slide, 3 varian)
+## B. Konten per Slide (17 slide, 4 model)
 
 Format tiap slide: **pesan utama** · isi · visual · *notes* (speaker notes ada di deck).
 
-**Varian yang dibandingkan di deck**: B0 baseline (default Ultralytics), E3 tuned (plain), E4 + SAHI
-(terbaik). Empat varian lain (E3 + TTA, E3 + SAHI, B0 + SAHI, E4 plain) hanya dibahas di `REPORT.md`
-dan disebut singkat di notes.
+**Model yang dibandingkan di deck** (sejak 2026-10-25): B0 baseline (default Ultralytics), E3 tuned (plain),
+E4 + SAHI (terbaik), dan E5 + SAHI (kontrol 2×2: config E4 dengan bobot awal B0). Varian lain (E3 + TTA,
+E3 + SAHI, B0 + SAHI, E4/E5 plain) hanya dibahas di `REPORT.md` dan disebut singkat di notes.
 
 **Metrik wajib**: Precision, Recall, mAP@50, mAP@50-95, confusion matrix, kecepatan inferensi
 (slide 3, 9, 10, 11, 12, 15). mAP@50 dan mAP@50-95 memakai definisi internal (`scripts/analysis.py`:
@@ -83,17 +83,17 @@ Nilai mAP@50-95 dari `scripts/rerun_evals.ps1` (2026-10-24 21:26); evaluasi ulan
 Angka: split test (121 gambar, 3.507 lesi), conf dipilih di val, matching IoU 0.5,
 sumber `runs/eval/<run>/metrics.json`.
 
-| | B0 baseline | E3 tuned | E4 + SAHI |
-|---|---|---|---|
-| conf (val) | 0.26 | 0.21 | 0.22 |
-| Precision | 0.572 | 0.544 | **0.611** |
-| Recall | 0.476 | 0.488 | **0.536** |
-| mAP@50 | 0.499 | 0.491 | **0.550** |
-| mAP@50-95 | 0.192 | 0.186 | **0.205** |
-| F1 | 0.520 | 0.515 | **0.571** |
-| TP / FP / FN | 1.671 / 1.252 / 1.836 | 1.712 / 1.432 / 1.795 | 1.880 / 1.196 / 1.627 |
-| Inferensi (median) | 69 ms | 70 ms | 626 ms |
-| MAE / bias / r | 9.27 / −4.83 / 0.860 | 8.69 / −3.00 / 0.910 | **8.29** / −3.56 / **0.943** |
+| | B0 baseline | E3 tuned | E5 + SAHI | E4 + SAHI |
+|---|---|---|---|---|
+| conf (val) | 0.26 | 0.21 | 0.22 | 0.22 |
+| Precision | 0.572 | 0.544 | 0.598 | **0.611** |
+| Recall | 0.476 | 0.488 | 0.516 | **0.536** |
+| mAP@50 | 0.499 | 0.491 | 0.533 | **0.550** |
+| mAP@50-95 | 0.192 | 0.186 | 0.192 | **0.205** |
+| F1 | 0.520 | 0.515 | 0.554 | **0.571** |
+| TP / FP / FN | 1.671 / 1.252 / 1.836 | 1.712 / 1.432 / 1.795 | 1.809 / 1.215 / 1.698 | 1.880 / 1.196 / 1.627 |
+| Inferensi (median) | 69 ms | 70 ms | 631 ms | 626 ms |
+| MAE / bias / r | 9.27 / −4.83 / 0.860 | 8.69 / −3.00 / 0.910 | 8.83 / −3.99 / 0.936 | **8.29** / −3.56 / **0.943** |
 
 ### 1. Judul
 - **AcneVision**: deteksi dan penghitungan lesi jerawat otomatis pada foto wajah. Foto hero = anotasi GT.
@@ -118,9 +118,11 @@ sumber `runs/eval/<run>/metrics.json`.
 - `tiling_example.png` (tile 2×2, overlap 10%, train 963 → 4.815, skala 0.53) dan `sahi_example.png`
   (9 slice 1728 px → 960, NMS IoU 0.5, skala 0.56; 3 slice nyaris duplikat).
 
-### 7. Tiga varian yang dibandingkan
-- Tabel konfigurasi B0 / E3 / E4 + SAHI: inisialisasi, data, optimizer, loss, augmentasi, epoch, mode inferensi.
-- *Notes*: detail augmentasi, temuan audit (copy_paste no-op, albumentations tidak terpasang), varian lain.
+### 7. Empat model yang dibandingkan (diagram)
+- Diagram native (shape + panah): COCO → B0 (default, 100 ep) → E5 (tile-FT, init B0) → SAHI;
+  COCO → E3 (tuned, 100 ep) → E4 (tile-FT, init E3) → SAHI. Tiap node berisi F1 / latency.
+- Dua kartu 2×2: E5 + SAHI − B0 + SAHI ΔF1 +0.029 [0.016, 0.043]; E4 + SAHI − E5 + SAHI ΔF1 +0.017 [0.005, 0.030] (keduanya signifikan).
+- *Notes*: konfigurasi lengkap (optimizer, loss, augmentasi, epoch), temuan audit, tile-FT merugikan mode plain.
 
 ### 8. Protokol evaluasi & standar minimum
 - `eval_protocol.png`; confusion matrix tanpa TN; bootstrap 10.000×.
@@ -128,35 +130,36 @@ sumber `runs/eval/<run>/metrics.json`.
   inferensi < 1 s / < 100 ms (minimum / baik). *Notes*: studi literatur (RESEARCH.md B).
 
 ### 9. Metrik utama
-- Tabel 3 varian: conf, Precision, Recall, mAP@50, mAP@50-95, inferensi (coral = terbaik per kolom)
+- Tabel 4 model: conf, Precision, Recall, mAP@50, mAP@50-95, inferensi (coral = terbaik per kolom)
   + definisi singkat tiap metrik.
 
 ### 10. Hasil deteksi
-- Chart Precision / Recall / mAP@50 / mAP@50-95 (seri E4 + SAHI, B0, E3) + tabel F1.
-- Selisih F1 (CI 95%): E4 + SAHI − B0 +0.051 (signifikan), E4 + SAHI − E3 +0.057 (signifikan),
-  E3 − B0 −0.005 (tidak signifikan).
+- Chart Precision / Recall / mAP@50 / mAP@50-95 (seri E4 + SAHI, B0, E3, E5 + SAHI) + tabel F1.
+- Selisih F1 (CI 95%): E4 + SAHI − B0 +0.051, E4 + SAHI − E5 + SAHI +0.017, E5 + SAHI − B0 +0.034
+  (ketiganya signifikan), E3 − B0 −0.005 (tidak signifikan).
 
 ### 11. Confusion matrix
-- Tiga matriks (`cm_yolov8l_960_default.png`, `cm_yolov8l_960.png`, `cm_yolov8l_960_tiles2_ft_sahi1728.png`);
-  baris = prediksi, kolom = GT, TN = N/A. FP lokalisasi / latar: B0 657 / 595, E3 866 / 566, E4 + SAHI 500 / 696.
+- Empat matriks (`cm_yolov8l_960_default.png`, `cm_yolov8l_960.png`, `cm_yolov8l_960_default_tiles2_ft_sahi1728.png`,
+  `cm_yolov8l_960_tiles2_ft_sahi1728.png`); baris = prediksi, kolom = GT, TN = N/A. FP lokalisasi / latar:
+  B0 657 / 595, E3 866 / 566, E5 + SAHI 516 / 699, E4 + SAHI 500 / 696.
 
 ### 12. Kecepatan inferensi
-- Bar median ms per gambar: B0 69, E3 70, E4 + SAHI 626 (±14 vs ±1,6 gambar/detik).
+- Bar median ms per gambar: B0 69, E3 70, E4 + SAHI 626, E5 + SAHI 631 (±14 vs ±1,6 gambar/detik).
 - *Notes*: waktu model saja (model.val, batch 4): B0 43.2 ms, E3 42.2 ms.
 
 ### 13. Hasil counting
-- Chart MAE (8.29 / 8.69 / 9.27) + tabel bias & Pearson r + `count_scatter.png` (B0 vs E4 + SAHI).
+- Chart MAE (E4 + SAHI 8.29 / E5 + SAHI 8.83 / E3 8.69 / B0 9.27) + tabel bias & Pearson r + `count_scatter.png` (B0 vs E4 + SAHI).
 - *Notes*: level 3 (434 GT): B0 173, E4 + SAHI 264; selisih MAE tidak signifikan.
 
 ### 14. Contoh prediksi (E4 + SAHI)
 - `levle1_482` (terbaik), `levle1_288` (F1 terendah), `levle3_89` (terpadat); TP biru, FP kuning, FN merah.
 
 ### 15. Hasil vs standar minimum
-- Tabel 7 metrik × 3 varian + ambang + status E4 + SAHI. B0 dan E3 di bawah minimum Recall;
-  E4 + SAHI memenuhi semua minimum (Precision & r baik); hanya mode plain yang < 100 ms.
+- Tabel 7 metrik × 4 model + ambang + status E4 + SAHI. B0 dan E3 di bawah minimum Recall;
+  E4 + SAHI dan E5 + SAHI memenuhi semua minimum (Precision & r baik); hanya mode plain yang < 100 ms.
 
 ### 16. Kesimpulan & langkah lanjut
-- Memenuhi standar · kontributor utama SAHI · trade-off 9× lebih lambat.
+- Memenuhi standar · kontributor utama SAHI (fine-tune tile dari B0 +0.029 F1; bobot awal E3 tetap lebih baik +0.017) · trade-off 9× lebih lambat.
 - Rekomendasi: E4 + SAHI (akurasi) atau E3 plain (< 100 ms). Keterbatasan & roadmap ringkas.
 
 ### 17. Terima kasih & referensi

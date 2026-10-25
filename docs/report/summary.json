@@ -124,5 +124,26 @@
     "Pearson r": 0.8912,
     "Latency ms": 641.0,
     "Inference ms (Ultralytics)": null
+  },
+  {
+    "Varian": "E5 tile-FT(B0) + SAHI",
+    "mAP50 (Ultralytics)": null,
+    "mAP50-95": null,
+    "AP50 (internal)": 0.5333,
+    "mAP50-95 (internal)": 0.1919,
+    "conf (val)": 0.22,
+    "Precision": 0.5982,
+    "Recall": 0.5158,
+    "F1": 0.554,
+    "TP": 1809,
+    "FP": 1215,
+    "FN": 1698,
+    "FP lokalisasi": 516,
+    "MAE": 8.83,
+    "RMSE": 19.53,
+    "Bias": -3.99,
+    "Pearson r": 0.9359,
+    "Latency ms": 631.4,
+    "Inference ms (Ultralytics)": null
   }
 ]
