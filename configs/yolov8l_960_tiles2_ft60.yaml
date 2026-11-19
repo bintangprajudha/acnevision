@@ -1,0 +1,48 @@
+# ==============================================================================
+# AcneVision - E8: E4 dengan fine-tune tile lebih panjang (60 epoch)
+# ==============================================================================
+# Hipotesis: E4 belum konvergen (mAP@50 val tile masih naik di epoch 10, val loss
+# masih turun); fine-tune 60 epoch menaikkan F1/recall E4 + SAHI.
+# Satu variabel vs E4 (configs/yolov8l_960_tiles2_ft.yaml): epochs 10 -> 60
+# (patience = epochs, seperti E4, agar jadwal cosine berjalan utuh).
+# Dataset: python scripts/data/preprocess.py --grid 2 --overlap 0.1
+# ==============================================================================
+
+model: runs/detect/yolov8l_960/weights/best.pt   # Inisialisasi dari E3
+data: data_tiles2/data.yaml
+name: yolov8l_960_tiles2_ft60
+
+# --- Jadwal fine-tune ---
+epochs: 60
+patience: 60
+imgsz: 960
+batch: 4
+workers: 2
+seed: 42
+deterministic: true
+
+optimizer: AdamW
+lr0: 0.0002          # 1/5 lr E3: fine-tune, bukan training dari awal
+lrf: 0.1
+cos_lr: true
+warmup_epochs: 1
+weight_decay: 0.0005
+
+# --- Loss (sama dengan E3) ---
+box: 10.0
+cls: 0.3
+dfl: 2.0
+
+# --- Augmentasi (sama dengan E3) ---
+mosaic: 1.0
+close_mosaic: 3
+mixup: 0.1
+copy_paste: 0.0
+fliplr: 0.5
+flipud: 0.5
+degrees: 10.0
+translate: 0.1
+scale: 0.5
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4

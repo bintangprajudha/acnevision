@@ -20,6 +20,23 @@ MAX_DET = 1000
 _SEVERITY_RE = re.compile(r"^levle(\d)_")
 
 
+def load_model(path):
+    """Muat model Ultralytics dengan kelas yang benar.
+
+    RT-DETR butuh kelas `RTDETR` (loss, validator, dan postprocess berbeda dari YOLO); kelas `YOLO`
+    akan salah memakai pipeline YOLO. Deteksi via nama file (bobot pretrained, mis. rtdetr-l.pt)
+    atau via kelas model di checkpoint (best.pt hasil training).
+    """
+    from ultralytics import RTDETR, YOLO
+    path = str(path)
+    if "rtdetr" in Path(path).name.lower():
+        return RTDETR(path)
+    model = YOLO(path)
+    if type(model.model).__name__ == "RTDETRDetectionModel":
+        return RTDETR(path)
+    return model
+
+
 def get_device():
     """Return device index GPU pertama, atau 'cpu' bila CUDA tidak tersedia."""
     return 0 if torch.cuda.is_available() else "cpu"

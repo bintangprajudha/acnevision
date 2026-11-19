@@ -1,0 +1,53 @@
+# ==============================================================================
+# AcneVision - E10: resep E3 dengan head P2 (stride 4)
+# ==============================================================================
+# Hipotesis: head P2 menaikkan recall lesi kecil (73,5% lesi < 16 px pada 960).
+# Dasar: Wen et al. 2022 (Technology and Health Care, PMC9028662) - detektor khusus objek kecil.
+# Satu variabel vs E3: arsitektur yolov8l-p2.yaml (bawaan Ultralytics) + transfer bobot COCO yolov8l.pt.
+# Tahap 1 (screening): dinilai hanya di split val (scripts/evaluate.py --val-only), dibandingkan dengan E3.
+# Key `model` dan `data` relatif terhadap root project (di-resolve oleh train.py).
+# ==============================================================================
+
+model: yolov8l-p2.yaml           # Arsitektur bawaan Ultralytics (head P2-P5)
+pretrained: pretrained/yolov8l.pt   # Transfer bobot COCO ke layer yang cocok
+data: data/data.yaml
+name: yolov8l_960_p2
+
+# --- Jadwal training ---
+epochs: 100
+patience: 25
+imgsz: 960          # Batas aman VRAM 8GB dengan batch=4
+batch: 4            # nbs=64 -> gradient accumulation otomatis 16 step
+workers: 2          # >2 memicu lonjakan RAM di Windows
+seed: 42
+deterministic: true
+
+# --- Optimizer ---
+optimizer: AdamW
+lr0: 0.001
+lrf: 0.01
+cos_lr: true
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3
+warmup_momentum: 0.8
+
+# --- Bobot loss (single-class, objek kecil) ---
+box: 10.0
+cls: 0.3
+dfl: 2.0
+
+# --- Augmentasi ---
+mosaic: 1.0
+close_mosaic: 10
+mixup: 0.1
+copy_paste: 0.0     # Run asli memakai 0.3, tetapi copy_paste hanya aktif untuk label segmentasi
+                    # (label kita bbox) sehingga no-op. Diset 0.0 agar jujur; hasil identik.
+fliplr: 0.5
+flipud: 0.5
+degrees: 10.0
+translate: 0.1
+scale: 0.5
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4

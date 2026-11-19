@@ -14,20 +14,35 @@ from pathlib import Path
 
 import torch
 import yaml
-from ultralytics import YOLO
 
-from common import PROJECT_ROOT, RUNS_DIR, get_device
+from common import PROJECT_ROOT, RUNS_DIR, get_device, load_model
 
 DEFAULT_CFG = PROJECT_ROOT / "configs" / "yolov8l_960.yaml"
 
 
+def build_albumentations(specs: list) -> list:
+    """List {name, ...param} dari config -> objek albumentations (diteruskan sebagai `augmentations`).
+
+    Menggantikan set default Ultralytics (Blur/MedianBlur/ToGray/CLAHE p=0.01)."""
+    import albumentations as A
+    return [getattr(A, s["name"])(**{k: v for k, v in s.items() if k != "name"}) for s in specs]
+
+
 def load_cfg(cfg_path: Path) -> dict:
-    """Baca config YAML dan resolve path `model`/`data` terhadap root project."""
+    """Baca config YAML dan resolve path `model`/`data`/`pretrained` terhadap root project.
+
+    Nama tanpa folder yang tidak ada di project (mis. `yolov8l-p2.yaml` bawaan Ultralytics) diteruskan apa adanya."""
     with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
-    for key in ("model", "data"):
+    for key in ("model", "data", "pretrained"):
+        if not isinstance(cfg.get(key), str):
+            continue
         p = Path(cfg[key])
-        cfg[key] = str(p if p.is_absolute() else PROJECT_ROOT / p)
+        if p.is_absolute() or (len(p.parts) == 1 and not (PROJECT_ROOT / p).exists()):
+            continue
+        cfg[key] = str(PROJECT_ROOT / p)
+    if "albumentations" in cfg:
+        cfg["augmentations"] = build_albumentations(cfg.pop("albumentations"))
     return cfg
 
 
@@ -53,9 +68,9 @@ def main():
     last = args.project / cfg["name"] / "weights" / "last.pt"
     if last.exists():
         print(f"Resume dari checkpoint: {last}")
-        YOLO(str(last)).train(resume=True, device=device, workers=cfg.get("workers", 2))
+        load_model(last).train(resume=True, device=device, workers=cfg.get("workers", 2))
     else:
-        YOLO(model_path).train(project=str(args.project), device=device, **cfg)
+        load_model(model_path).train(project=str(args.project), device=device, **cfg)
 
     print(f"Selesai. Bobot: {args.project / cfg['name'] / 'weights' / 'best.pt'}")
     print("Langkah berikutnya: python scripts/evaluate.py --weights <best.pt>")

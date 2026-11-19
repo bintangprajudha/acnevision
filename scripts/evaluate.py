@@ -8,7 +8,8 @@ Protokol evaluasi standar proyek (lihat docs/SPEC.md):
 2. AP@50 internal + TP/FP/FN dari matcher proyek (scripts/analysis.py), sehingga
    mode SAHI/TTA dapat dibandingkan dengan definisi yang sama.
 3. Threshold confidence operasional DIPILIH di split val (MAE counting minimum),
-   lalu diterapkan ke test: counting (MAE, RMSE, bias, r) dan confusion matrix.
+   lalu diterapkan ke test: counting (MAE, RMSE, bias, r, MAE/RMSE relatif), grading Hayashi
+   (accuracy, precision, sensitivity, specificity, Youden; ala Wu et al. 2019) dan confusion matrix.
 
 Prediksi dijalankan sekali per split dengan conf rendah; matching dihitung sekali,
 lalu semua threshold diturunkan dari skor yang tersimpan.
@@ -18,6 +19,7 @@ Usage:
     python scripts/evaluate.py --weights runs/detect/exp/weights/best.pt
     python scripts/evaluate.py --mode tta
     python scripts/evaluate.py --mode sahi --slice 960
+    python scripts/evaluate.py --weights <best.pt> --val-only        # screening: hanya split val, test tidak disentuh
 """
 import argparse
 import json
@@ -26,21 +28,21 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from ultralytics import YOLO
 
-from analysis import IOU_GRID, ap50, box_iou, load_gt_boxes, map50_95, match, plot_confusion, prf
+from analysis import (IOU_GRID, ap50, box_iou, grading_metrics, load_gt_boxes, map50_95, match,
+                      plot_confusion, prf)
 from common import (DATA_YAML, DEFAULT_WEIGHTS, MAX_DET, PROJECT_ROOT, RUNS_DIR,
-                    get_device, severity_from_name, train_imgsz)
+                    get_device, load_model, severity_from_name, train_imgsz)
 
 MIN_CONF = 0.001                       # conf prediksi mentah (untuk AP)
 CONF_GRID = np.round(np.arange(0.05, 0.61, 0.01), 2)
 IMG_EXT = {".jpg", ".jpeg", ".png"}
 
 
-def detection_metrics(model, imgsz, device, out_dir: Path, augment: bool) -> dict:
-    """mAP/P/R Ultralytics pada split test dengan argumen validasi default."""
+def detection_metrics(model, imgsz, device, out_dir: Path, augment: bool, split: str = "test") -> dict:
+    """mAP/P/R Ultralytics pada satu split dengan argumen validasi default."""
     m = model.val(
-        data=str(DATA_YAML), split="test", imgsz=imgsz, batch=4, device=device,
+        data=str(DATA_YAML), split=split, imgsz=imgsz, batch=4, device=device,
         conf=MIN_CONF, iou=0.7, max_det=MAX_DET, augment=augment, save_json=True, plots=True,
         project=str(out_dir.parent), name=out_dir.name, exist_ok=True, verbose=False,
     )
@@ -125,6 +127,10 @@ def counting_metrics(gt: np.ndarray, pred: np.ndarray) -> dict:
         "RMSE": round(float(np.sqrt((err ** 2).mean())), 2),
         "bias": round(float(err.mean()), 2),          # negatif = under-count
         "pearson_r": round(r, 4),
+        # Dinormalisasi rata-rata GT per gambar: pembanding lintas dataset dengan kepadatan lesi berbeda
+        # (ACNE04 v1 ±13 lesi/gambar vs v2 ±27)
+        "MAE_rel_pct": round(100 * float(np.abs(err).mean() / gt.mean()), 1) if gt.mean() > 0 else float("nan"),
+        "RMSE_rel_pct": round(100 * float(np.sqrt((err ** 2).mean()) / gt.mean()), 1) if gt.mean() > 0 else float("nan"),
         "total_gt": int(gt.sum()),
         "total_pred": int(pred.sum()),
     }
@@ -139,7 +145,8 @@ def report_at(df: pd.DataFrame, conf: float) -> dict:
     # tanpa overlap berarti = FP latar (kulit/latar belakang, atau lesi yang tidak dianotasi)
     fp_loc = sum(int((~t & (s >= conf) & (m >= 0.1)).sum())
                  for s, t, m in zip(df["scores"], df["tp"], df["max_iou"]))
-    out = {"conf": conf, "counting": counting_metrics(gt, pred), "detection": prf(*tff.sum()),
+    out = {"conf": conf, "counting": counting_metrics(gt, pred), "grading_hayashi": grading_metrics(gt, pred),
+           "detection": prf(*tff.sum()),
            "fp_breakdown": {"localization": fp_loc, "background": int(tff["FP"].sum()) - fp_loc},
            "per_level": {}}
     for lvl in sorted(df["severity"].unique()):
@@ -149,20 +156,48 @@ def report_at(df: pd.DataFrame, conf: float) -> dict:
     return out
 
 
+def write_val_report(val_df: pd.DataFrame, best_conf: float, det, weights: Path, args, imgsz: int, out_dir: Path):
+    """Laporan screening di split val: conf dipilih DAN diukur di val yang sama (optimistis,
+    tetapi setara untuk semua run yang dibandingkan). Tidak dipakai untuk laporan akhir."""
+    n_gt = int(val_df["gt_count"].sum())
+    tps_by_iou = [[r[k] for r in val_df["tp_iou"]] for k in range(len(IOU_GRID))]
+    at_tuned = report_at(val_df, best_conf)
+    tff = tp_fp_fn_at(val_df, best_conf)
+    val_df[["image", "severity", "gt_count"]].assign(
+        pred_count=counts_at(val_df, best_conf), **{c: tff[c] for c in tff}).to_csv(out_dir / "counts_val.csv", index=False)
+    report = {
+        "weights": str(weights.relative_to(PROJECT_ROOT)),
+        "mode": args.mode, "imgsz": imgsz, "max_det": MAX_DET, "iou_match": 0.5,
+        "slice": args.slice if args.mode == "sahi" else None,
+        "split": "val", "note": "conf dipilih dan diukur di val yang sama; hanya untuk screening antar-run",
+        "detection_val_ultralytics": det,
+        "ap50_val_internal": round(ap50(list(val_df["scores"]), list(val_df["tp"]), n_gt), 4),
+        "map50_95_val_internal": round(map50_95(list(val_df["scores"]), tps_by_iou, n_gt), 4),
+        "latency_ms_median": round(float(val_df["latency_ms"].iloc[1:].median()), 1),
+        "conf_selected_on_val": best_conf,
+        "val_conf_val_tuned": at_tuned,
+    }
+    (out_dir / "metrics_val.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(f"[Val conf {best_conf:.2f}] {at_tuned['counting']} {at_tuned['detection']}")
+    print(f"Laporan screening: {out_dir / 'metrics_val.json'}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="AcneVision - Evaluasi deteksi, counting & confusion matrix")
     parser.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS)
     parser.add_argument("--imgsz", type=int, default=None, help="Default: imgsz saat training")
     parser.add_argument("--mode", choices=["plain", "tta", "sahi"], default="plain")
     parser.add_argument("--slice", type=int, default=960, help="Ukuran patch SAHI (px)")
+    parser.add_argument("--val-only", action="store_true",
+                        help="Screening: evaluasi hanya di val (conf dipilih & diukur di val), test tidak diprediksi")
     args = parser.parse_args()
 
     weights = args.weights.resolve()
-    model = YOLO(str(weights))
+    model = load_model(weights)
     imgsz = args.imgsz or train_imgsz(model)
     device = get_device()
     suffix = {"plain": "", "tta": "_tta", "sahi": f"_sahi{args.slice}"}[args.mode]
-    run_name = weights.parent.parent.name + suffix
+    run_name = weights.parent.parent.name + suffix + ("_val" if args.val_only else "")
     out_dir = RUNS_DIR / "eval" / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Model: {weights}\nmode: {args.mode} | imgsz: {imgsz} | output: {out_dir}")
@@ -170,18 +205,22 @@ def main():
     # 1) Metrik deteksi Ultralytics (tidak tersedia untuk SAHI)
     det = None
     if args.mode != "sahi":
-        det = detection_metrics(model, imgsz, device, out_dir, augment=args.mode == "tta")
-        print(f"[Deteksi/test Ultralytics] {det}")
+        split = "val" if args.val_only else "test"
+        det = detection_metrics(model, imgsz, device, out_dir, augment=args.mode == "tta", split=split)
+        print(f"[Deteksi/{split} Ultralytics] {det}")
 
-    # 2) Prediksi + matching val & test
+    # 2) Prediksi + matching val (threshold operasional dipilih di val: MAE counting minimum)
     predict = make_predictor(model, weights, args.mode, imgsz, device, args.slice)
     val_df = collect(predict, "val")
-    test_df = collect(predict, "test")
-
-    # 3) Threshold operasional dipilih di val (MAE counting minimum)
     val_gt = val_df["gt_count"].to_numpy()
     val_mae = {c: np.abs(counts_at(val_df, c) - val_gt).mean() for c in CONF_GRID}
     best_conf = float(min(val_mae, key=val_mae.get))
+    if args.val_only:
+        write_val_report(val_df, best_conf, det, weights, args, imgsz, out_dir)
+        return
+
+    # 3) Prediksi + matching test
+    test_df = collect(predict, "test")
 
     n_gt = int(test_df["gt_count"].sum())
     ap = round(ap50(list(test_df["scores"]), list(test_df["tp"]), n_gt), 4)

@@ -1,0 +1,53 @@
+# ==============================================================================
+# AcneVision - E12: resep E3 pada imgsz 1280
+# ==============================================================================
+# Hipotesis: resolusi input 1280 menaikkan recall lesi kecil (52% lesi < 16 px vs 73,5% pada 960).
+# Dasar: Gazeau et al. 2024 (AcneAI, MICCAI) - YOLOv8 @1280 pada ACNE04-v2.
+# Variabel vs E3: imgsz 960 -> 1280; batch 4 -> 2 terpaksa karena VRAM 8 GB (nbs=64 tetap menjaga
+# batch efektif lewat gradient accumulation).
+# Tahap 1 (screening): dinilai hanya di split val (scripts/evaluate.py --val-only), dibandingkan dengan E3.
+# Key `model` dan `data` relatif terhadap root project (di-resolve oleh train.py).
+# ==============================================================================
+
+model: pretrained/yolov8l.pt   # Pretrained COCO
+data: data/data.yaml
+name: yolov8l_1280
+
+# --- Jadwal training ---
+epochs: 100
+patience: 25
+imgsz: 1280         # E12: resolusi lebih tinggi
+batch: 2            # VRAM 8GB; nbs=64 -> gradient accumulation otomatis 32 step
+workers: 2          # >2 memicu lonjakan RAM di Windows
+seed: 42
+deterministic: true
+
+# --- Optimizer ---
+optimizer: AdamW
+lr0: 0.001
+lrf: 0.01
+cos_lr: true
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3
+warmup_momentum: 0.8
+
+# --- Bobot loss (single-class, objek kecil) ---
+box: 10.0
+cls: 0.3
+dfl: 2.0
+
+# --- Augmentasi ---
+mosaic: 1.0
+close_mosaic: 10
+mixup: 0.1
+copy_paste: 0.0     # Run asli memakai 0.3, tetapi copy_paste hanya aktif untuk label segmentasi
+                    # (label kita bbox) sehingga no-op. Diset 0.0 agar jujur; hasil identik.
+fliplr: 0.5
+flipud: 0.5
+degrees: 10.0
+translate: 0.1
+scale: 0.5
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4

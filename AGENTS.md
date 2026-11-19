@@ -20,8 +20,9 @@ model **YOLOv8** untuk mendeteksi dan menghitung lesi jerawat pada foto wajah
 | Rencana eksperimen berikutnya | `docs/ROADMAP.md` |
 | Aturan dokumentasi | `docs/README.md` |
 
-- Model terpilih: **YOLOv8l @ 960px** → `runs/detect/yolov8l_960/weights/best.pt`,
-  dilatih dari `configs/yolov8l_960.yaml`.
+- Model terpilih (E9, ditetapkan 2026-11-13): **YOLOv8l @ 960px, tile 2×2** →
+  `runs/detect/yolov8l_960_tiles2/weights/best.pt`, dilatih dari `configs/yolov8l_960_tiles2.yaml`
+  (inferensi SAHI 1728 untuk akurasi, plain untuk latency < 100 ms). E3 (`yolov8l_960`) = model terpilih sebelumnya.
 - Entry point: `scripts/train.py`, `scripts/evaluate.py`, `scripts/predict.py`
   (utilitas bersama di `scripts/common.py`; persiapan data di `scripts/data/`).
 - Python: selalu `.venv\Scripts\python.exe` (Python 3.10, CUDA, RTX 4060 8GB).

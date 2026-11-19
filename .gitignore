@@ -108,3 +108,6 @@ package-lock.json
 # ==============================================================================
 ~$*
 .claude/settings.local.json
+
+# Paper berhak cipta (acuan lokal, jangan di-push)
+2216_paper.pdf

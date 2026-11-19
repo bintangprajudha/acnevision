@@ -95,6 +95,39 @@ def prf(tp: int, fp: int, fn: int) -> dict:
             "precision": round(p, 4), "recall": round(r, 4), "F1": round(f1, 4)}
 
 
+# Kriteria Hayashi seperti dipakai Wu et al. (ICCV 2019, Tabel 1) pada ACNE04:
+# Mild 1-5, Moderate 6-20, Severe 21-50, Very severe > 50 lesi (0 lesi dimasukkan ke Mild).
+HAYASHI_UPPER = (5, 20, 50)
+HAYASHI_NAMES = ("mild", "moderate", "severe", "very_severe")
+
+
+def hayashi_grade(counts) -> np.ndarray:
+    """Jumlah lesi -> grade Hayashi 0..3."""
+    return np.searchsorted(HAYASHI_UPPER, np.asarray(counts), side="left")
+
+
+def grading_metrics(gt_counts, pred_counts) -> dict:
+    """Metrik grading ala Wu 2019, grade diturunkan dari jumlah lesi (GT dan prediksi).
+
+    Precision/sensitivity/specificity = rata-rata makro one-vs-rest atas kelas yang ada;
+    Youden Index = sensitivity + specificity - 1 (dalam persen, seperti Wu 2019)."""
+    g, p = hayashi_grade(gt_counts), hayashi_grade(pred_counts)
+    prec, sens, spec = [], [], []
+    for k in range(len(HAYASHI_NAMES)):
+        tp = int(((p == k) & (g == k)).sum())
+        if (g == k).any():
+            sens.append(tp / (g == k).sum())
+            spec.append(((p != k) & (g != k)).sum() / max((g != k).sum(), 1))
+        if (p == k).any():
+            prec.append(tp / (p == k).sum())
+    se, sp = float(np.mean(sens)), float(np.mean(spec))
+    return {"accuracy": round(100 * float((g == p).mean()), 2),
+            "precision": round(100 * float(np.mean(prec)), 2) if prec else 0.0,
+            "sensitivity": round(100 * se, 2), "specificity": round(100 * sp, 2),
+            "youden": round(100 * (se + sp - 1), 2),
+            "n_per_grade_gt": {n: int((g == k).sum()) for k, n in enumerate(HAYASHI_NAMES)}}
+
+
 def plot_confusion(tp: int, fp: int, fn: int, path: Path, title: str) -> None:
     """Confusion matrix deteksi 2x2. Sel background-background diberi keterangan N/A:
     pada deteksi objek, 'true negative' (area kulit yang benar tidak diprediksi) tidak

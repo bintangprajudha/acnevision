@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from analysis import grading_metrics
 from common import PROJECT_ROOT, RUNS_DIR
 
 FIG_DIR = PROJECT_ROOT / "docs" / "report" / "figures"
@@ -37,7 +38,25 @@ VARIANTS = [
     ("B0 + SAHI", "yolov8l_960_default_sahi1728", None, "#008300"),
     # E5 = config E4 dengan init B0 (desain 2x2 init x tile-FT); dilewati bila belum dievaluasi
     ("E5 tile-FT(B0) + SAHI", "yolov8l_960_default_tiles2_ft_sahi1728", None, "#7d53c8"),
+    # E9 = training tile dari COCO (resep E3); slot 8 palet
+    ("E9 tile dari COCO + SAHI", "yolov8l_960_tiles2_sahi1728", None, "#e34948"),
 ]
+# Durasi training tile: (label, run, warna). Diplot terpisah (plain & SAHI) + baris summary
+# untuk varian yang belum ada di VARIANTS.
+TILE = [
+    ("E4 fine-tune 10 ep", "yolov8l_960_tiles2_ft", "#e87ba4"),
+    ("E8 fine-tune 60 ep", "yolov8l_960_tiles2_ft60", "#6250d6"),
+    ("E9 tile dari COCO 100 ep", "yolov8l_960_tiles2", "#e34948"),
+]
+# YOLOv8l vs YOLO11l pada resep yang sama: (resep, run YOLOv8l, run YOLO11l, label YOLO11l).
+# Tidak masuk grafik utama (sudah 7 varian); diplot terpisah dengan 2 seri warna = arsitektur.
+ARCH = [
+    ("E3", "yolov8l_960", "yolo11l_960", "E6 YOLO11l (resep E3)"),
+    ("E3 + SAHI", "yolov8l_960_sahi1728", "yolo11l_960_sahi1728", "E6 + SAHI"),
+    ("E4 tile-FT", "yolov8l_960_tiles2_ft", "yolo11l_960_tiles2_ft", "E7 YOLO11l tile-FT (resep E4)"),
+    ("E4 tile-FT + SAHI", "yolov8l_960_tiles2_ft_sahi1728", "yolo11l_960_tiles2_ft_sahi1728", "E7 tile-FT + SAHI"),
+]
+ARCH_COLORS = {"YOLOv8l": "#2a78d6", "YOLO11l": "#eb6834"}
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 plt.rcParams.update({
@@ -61,6 +80,23 @@ def load_variants():
     return out
 
 
+def counting_extra(eval_dir: str) -> dict:
+    """MAE/RMSE relatif + grading Hayashi (ala Wu 2019) dari counts_test.csv (conf operasional).
+    Dihitung ulang dari CSV agar run lama (metrics.json tanpa metrik ini) tetap tercakup."""
+    f = EVAL / eval_dir / "counts_test.csv"
+    if not f.exists():
+        return {}
+    d = pd.read_csv(f)
+    gt, pred = d["gt_count"].to_numpy(), d["pred_count"].to_numpy()
+    err = pred - gt
+    g = grading_metrics(gt, pred)
+    return {"MAE rel %": round(100 * np.abs(err).mean() / gt.mean(), 1),
+            "RMSE rel %": round(100 * np.sqrt((err ** 2).mean()) / gt.mean(), 1),
+            "Hayashi acc %": g["accuracy"], "Hayashi prec %": g["precision"],
+            "Hayashi sens %": g["sensitivity"], "Hayashi spec %": g["specificity"],
+            "Youden %": g["youden"]}
+
+
 def summary_rows(variants):
     rows = []
     for v in variants:
@@ -80,6 +116,7 @@ def summary_rows(variants):
             "FP lokalisasi": t.get("fp_breakdown", {}).get("localization"),
             "MAE": t["counting"]["MAE"], "RMSE": t["counting"]["RMSE"], "Bias": t["counting"]["bias"],
             "Pearson r": t["counting"]["pearson_r"],
+            **counting_extra(v["eval_dir"]),
             "Latency ms": m.get("latency_ms_median"),
             "Inference ms (Ultralytics)": det.get("inference_ms"),
         })
@@ -206,16 +243,118 @@ def fig_training(variants):
     plt.close(fig)
 
 
+def fig_arch():
+    """YOLOv8l vs YOLO11l per resep: F1, mAP@50-95 internal, MAE (test) + kurva val E3 vs E6.
+
+    Mengembalikan varian YOLO11l yang tersedia (untuk tabel summary)."""
+    rows = [r for r in ARCH if (EVAL / r[1] / "metrics.json").exists() and (EVAL / r[2] / "metrics.json").exists()]
+    if not rows:
+        print("[lewati] perbandingan arsitektur: hasil YOLO11l belum ada")
+        return []
+    load = lambda d: json.loads((EVAL / d / "metrics.json").read_text(encoding="utf-8"))
+    panels = [("F1 (↑)", lambda m: m["test_conf_val_tuned"]["detection"]["F1"], "{:.3f}"),
+              ("mAP@50-95 internal (↑)", lambda m: m["map50_95_test_internal"], "{:.3f}"),
+              ("MAE lesi/gambar (↓)", lambda m: m["test_conf_val_tuned"]["counting"]["MAE"], "{:.2f}")]
+    x = np.arange(len(rows))
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
+    for ax, (title, get, fmt) in zip(axes, panels):
+        for j, (arch, col) in enumerate(((1, "YOLOv8l"), (2, "YOLO11l"))):
+            vals = [get(load(r[arch])) for r in rows]
+            bars = ax.bar(x + (j - 0.5) * 0.38, vals, 0.36, color=ARCH_COLORS[col], label=col,
+                          edgecolor="#fcfcfb", linewidth=1)
+            for b, val in zip(bars, vals):
+                ax.text(b.get_x() + b.get_width() / 2, val, fmt.format(val), ha="center", va="bottom",
+                        fontsize=7, color=INK2)
+        ax.set_xticks(x, [r[0] for r in rows], fontsize=8, rotation=15)
+        ax.set_title(title, loc="left", fontsize=10, color=INK)
+        bar_end(ax)
+    fig.legend(*axes[0].get_legend_handles_labels(), frameon=False, fontsize=9, ncol=2,
+               loc="upper right", bbox_to_anchor=(1, 1.06))
+    fig.text(0.01, -0.03, "Test (121 gambar), conf dipilih di val per varian, IoU 0.5; mAP@50-95 dari matcher proyek "
+             "(conf 0.001). Resep (data, hyperparameter, jadwal) identik; hanya arsitektur yang berbeda.",
+             fontsize=8, color=INK2)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "arch_comparison.png", bbox_inches="tight")
+    plt.close(fig)
+
+    # Kurva val E3 vs E6 (keduanya val asli; E4/E7 val-nya berisi tile sehingga tidak diplot)
+    fig, ax = plt.subplots(figsize=(8, 3.6))
+    for run, col in (("yolov8l_960", "YOLOv8l"), ("yolo11l_960", "YOLO11l")):
+        f = RUNS_DIR / "detect" / run / "results.csv"
+        if f.exists():
+            r = pd.read_csv(f)
+            r.columns = [c.strip() for c in r.columns]
+            r = r.drop_duplicates("epoch", keep="last")
+            ax.plot(r["epoch"], r["metrics/mAP50(B)"], color=ARCH_COLORS[col], linewidth=2, label=f"{col} ({run})")
+    ax.set_xlabel("Epoch"), ax.set_ylabel("mAP@50 (val, selama training)")
+    ax.legend(frameon=False, fontsize=8)
+    ax.set_title("Kurva training resep E3: YOLOv8l vs YOLO11l (split val)", loc="left", color=INK, fontsize=11)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "arch_training_curves.png")
+    plt.close(fig)
+    return [{"label": r[3], "eval_dir": r[2], "m": load(r[2])} for r in rows]
+
+
+def fig_tile():
+    """E4 vs E8 vs E9: F1, mAP@50-95 internal, MAE untuk inferensi plain dan SAHI 1728 (test).
+
+    Mengembalikan varian E8 (plain, SAHI) dan E9 plain untuk tabel summary."""
+    rows = [t for t in TILE if (EVAL / t[1] / "metrics.json").exists()
+            and (EVAL / f"{t[1]}_sahi1728" / "metrics.json").exists()]
+    if len(rows) < 2:
+        print("[lewati] perbandingan durasi tile: hasil E8/E9 belum ada")
+        return []
+    load = lambda d: json.loads((EVAL / d / "metrics.json").read_text(encoding="utf-8"))
+    panels = [("F1 (↑)", lambda m: m["test_conf_val_tuned"]["detection"]["F1"], "{:.3f}"),
+              ("mAP@50-95 internal (↑)", lambda m: m["map50_95_test_internal"], "{:.3f}"),
+              ("MAE lesi/gambar (↓)", lambda m: m["test_conf_val_tuned"]["counting"]["MAE"], "{:.2f}")]
+    modes = [("Plain 960", ""), ("SAHI 1728", "_sahi1728")]
+    x = np.arange(len(modes))
+    w = 0.8 / len(rows)
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
+    for ax, (title, get, fmt) in zip(axes, panels):
+        for j, (label, run, color) in enumerate(rows):
+            vals = [get(load(run + suf)) for _, suf in modes]
+            bars = ax.bar(x + (j - (len(rows) - 1) / 2) * w, vals, w * 0.9, color=color, label=label,
+                          edgecolor="#fcfcfb", linewidth=1)
+            for b, val in zip(bars, vals):
+                ax.text(b.get_x() + b.get_width() / 2, val, fmt.format(val), ha="center", va="bottom",
+                        fontsize=7, color=INK2)
+        ax.set_xticks(x, [m[0] for m in modes], fontsize=9)
+        ax.set_title(title, loc="left", fontsize=10, color=INK)
+        bar_end(ax)
+    fig.legend(*axes[0].get_legend_handles_labels(), frameon=False, fontsize=9, ncol=len(rows),
+               loc="upper right", bbox_to_anchor=(1, 1.06))
+    fig.text(0.01, -0.03, "Test (121 gambar), conf dipilih di val per varian, IoU 0.5; mAP@50-95 dari matcher proyek "
+             "(conf 0.001). E4/E8: fine-tune tile dari E3 (lr 2e-4); E9: resep E3 pada data tile dari bobot COCO.",
+             fontsize=8, color=INK2)
+    fig.tight_layout()
+    fig.savefig(FIG_DIR / "tile_duration.png", bbox_inches="tight")
+    plt.close(fig)
+    have = {v[1] for v in VARIANTS}
+    out = []
+    for label, run, _ in rows:
+        for mname, suf in modes:
+            if run + suf not in have and run != "yolov8l_960_tiles2_ft":
+                out.append({"label": f"{label.split(' ')[0]} {mname.split(' ')[0]}", "eval_dir": run + suf,
+                            "m": load(run + suf)})
+    return out
+
+
 def main():
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     variants = load_variants()
     df = summary_rows(variants)
-    print(df.to_string(index=False))
     fig_detection(variants, df)
     fig_counting(variants, df)
     fig_scatter(variants)
     fig_per_level(variants)
     fig_training(variants)
+    # Varian YOLO11l hanya masuk grafik arsitektur + tabel summary (setelah grafik utama)
+    extra = fig_arch() + fig_tile()
+    if extra:
+        df = pd.concat([df, summary_rows(extra)], ignore_index=True)
+    print(df.to_string(index=False))
     # Salin confusion matrix (conf dipilih di val) tiap varian
     for v in variants:
         conf = v["m"]["conf_selected_on_val"]

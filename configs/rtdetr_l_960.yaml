@@ -1,0 +1,56 @@
+# ==============================================================================
+# AcneVision - B2: RT-DETR-l @ 960 (pembanding keluarga transformer untuk paper)
+# ==============================================================================
+# Hipotesis: detektor berbasis transformer (RT-DETR, Zhao et al., CVPR 2024) tidak lebih baik dari
+# YOLOv8l untuk lesi tiny & padat. Resep E3 (configs/yolov8l_960.yaml) dengan perubahan:
+#   model yolov8l -> rtdetr-l (pretrained COCO, diunduh otomatis ke pretrained/rtdetr-l.pt)
+#   batch 4 -> 2 (VRAM 8GB), lr0 1e-3 -> 1e-4 (lr standar RT-DETR; 1e-3 umumnya tidak stabil).
+# Bobot loss box/cls/dfl tidak dipakai loss RT-DETR (dibiarkan agar resep identik).
+# BATASAN: RT-DETR punya 300 query -> maks 300 deteksi/gambar (MAX_DET 1000 tidak berlaku);
+# 1 gambar test punya 434 lesi. SAHI belum didukung untuk RT-DETR (evaluasi plain saja).
+# Dipakai oleh: scripts/run_paper_baselines.ps1
+# ==============================================================================
+
+model: pretrained/rtdetr-l.pt   # Pretrained COCO (RT-DETR-l)
+data: data/data.yaml
+name: rtdetr_l_960
+
+
+# --- Jadwal training ---
+epochs: 100
+patience: 25
+imgsz: 960
+batch: 2            # VRAM 8GB; nbs=64 -> akumulasi 32 step
+workers: 2          # >2 memicu lonjakan RAM di Windows
+seed: 42
+deterministic: true
+
+# --- Optimizer ---
+optimizer: AdamW
+lr0: 0.0001         # lr standar RT-DETR
+lrf: 0.01
+cos_lr: true
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3
+warmup_momentum: 0.8
+
+# --- Bobot loss (single-class, objek kecil) ---
+box: 10.0
+cls: 0.3
+dfl: 2.0
+
+# --- Augmentasi ---
+mosaic: 1.0
+close_mosaic: 10
+mixup: 0.1
+copy_paste: 0.0     # Run asli memakai 0.3, tetapi copy_paste hanya aktif untuk label segmentasi
+                    # (label kita bbox) sehingga no-op. Diset 0.0 agar jujur; hasil identik.
+fliplr: 0.5
+flipud: 0.5
+degrees: 10.0
+translate: 0.1
+scale: 0.5
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4

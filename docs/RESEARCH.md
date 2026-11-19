@@ -89,6 +89,55 @@ under-count sistematis. Target ini dicatat di `SPEC.md`.
 
 ---
 
+## C. Model & paper YOLO pada ACNE04 (dicek 2026-10-29)
+
+Tujuan: mencari bobot terbuka atau resep yang bisa diadopsi. **Tidak ada bobot terbuka yang dilatih pada ACNE04
+dan layak dipakai.** Model yang dilatih dengan split acak ACNE04 hampir pasti sudah melihat gambar test kita,
+sehingga metrik test tidak sah.
+
+| Sumber | Data / label | Protokol | Hasil | Kode / bobot |
+|---|---|---|---|---|
+| Gazeau et al., AcneAI, MICCAI 2024 [acneai] | YOLOv8 @ **1280** dilatih pada data privat (901 gambar, 37.940 lesi), diuji pada **ACNE04-v2** yang dikoreksi (jumlah gambar uji tidak tertulis di PDF; "1.203" belum terverifikasi) | Threshold min \|FP−FN\| | YOLOv8: TPR 0.54, precision 0.54; AcneAI: TPR 0.52 | Tidak (repo "N/A") |
+| Zhang et al., IEEE Access 2024 [zhang2024] | ACNE04 v1, gambar kualitas buruk dibuang, bbox diperbaiki manual, augmentasi offline (rotasi, cermin, kecerahan, noise Gaussian) → 3.163 gambar | 8:2, mAP maksimum dari kurva training | mAP 83.7% (YOLOv7 dasar 79.13%) | Tidak |
+| Wen et al., THC 2022 [wen2022] | ACNE04 v1 difilter (1.222 gambar), bbox diperketat | 7:3 train/val | AP@0.5 Faster R-CNN R101 0.536, YOLOv4 0.526; MAE 3.49–3.61 | Kode (wenh06), tanpa bobot acne |
+| Ding et al., arXiv 2207.03674 [ding2022] | ACNE04 v1 asli | 80/20 | AP@0.5 0.22 | Kode, bobot tidak disebut |
+| HF Devon12/Acne-Detection, Tinny-Robot/acne; Roboflow acne04v2 | Tidak jelas | – | – | `.pt` tanpa info data/lisensi, atau hosted |
+
+**Kenapa angka literatur tidak sebanding:** label v1 jauh lebih sedikit (18.963 vs 32.376 lesi pada v2, [acneai]
+Tabel S1), bbox diperbaiki atau gambar difilter, dan epoch dipilih di test. Satu-satunya pembanding pada label v2
+adalah YOLOv8 @ 1280 AcneAI (recall 0.54, precision 0.54). E9 + SAHI kita mencapai recall 0.557, precision 0.611
+(test split kita; protokol berbeda).
+
+**Ide yang diuji (tahap 1, hanya train + val):**
+- E10: head P2 [wen2022: detektor khusus objek kecil].
+- E11: noise Gaussian + kecerahan/kontras [zhang2024].
+- E12: imgsz 1280 [acneai].
+
+**Tidak diadopsi:**
+- k-means anchor: YOLOv8 anchor-free.
+- Filter gambar dan perbaikan bbox: mengubah data, dan test menjadi tidak sebanding.
+- Modul EPSA/ELU: bukti lemah (dipilih di test, tanpa kode).
+
+## D. Benchmark pembanding ACNE04-v2 (dicek 2026-11-13)
+
+Ringkasan dari `reports/Benchmark deteksi jerawat ACNE04.md` (catatan: `research_notes/Benchmark deteksi jerawat ACNE04/`).
+**Belum ada benchmark ACNE04-v2 yang sebanding penuh:** tidak ada split, leaderboard, atau mAP resmi.
+
+| Sumber | Dataset / split | Metrik | Nilai | Keterbandingan | Verifikasi |
+|---|---|---|---|---|---|
+| SAT-AcneDet (Ding & Wang, SPIE Vol. 14389, SHDH 2026) | v2, split tidak diketahui | mAP@50 / recall | 0.608 / 0.601 (baseline YOLO11n 0.573 / 0.518) | Belum bisa dinilai | **Tidak terverifikasi**: hanya rendering mesin pencari atas listing; pencarian ulang tidak menemukan paper |
+| AcneAI (Gazeau, MICCAI 2024) | v2 sebagai test eksternal | "AP" = precision (bukan AP) | 0.57 (YOLOv8 @ 1280) | Tidak | PDF dibaca |
+| Wu dkk., ICCV 2019 (LDL) | v1, 5-fold | MAE / RMSE / acc | 2.93 / 5.42 / 84.11 | Tidak (v2 ±2× lebih padat) | Teks penuh |
+| Mask R-CNN + DSDH (arXiv 2301.12219) | v1, 80/20 acak, crop 640 | AP | 23.0 | Tidak | Teks penuh |
+
+Dikeluarkan/diberi catatan: paper GAN BioMedInformatics 2024 (retracted), "Improved YOLOv7" 83.7% (tidak masuk akal, protokol tak terbaca),
+skripsi UPI (non peer-review), mirror Roboflow (split sendiri).
+Model kita (E9 + SAHI 1728, test, conf 0.21): AP@50 0.562 vs SAT-AcneDet 0.608 / YOLO11n 0.573; selisih belum bisa dimaknai (split berbeda, n test = 121), dan SAT-AcneDet belum terverifikasi.
+**Status SAT-AcneDet (2026-11-13): TIDAK TERVERIFIKASI.** Angka hanya berasal dari rendering mesin pencari atas listing SPIE Vol. 14389; pencarian ulang tidak menemukan paper ini. Jangan dikutip sampai PDF terbaca.
+mAP@50-95, F1, dan MAE/Pearson tidak punya pembanding terpublikasi pada v2.
+
+---
+
 ## Referensi
 - [sahi] Akyon et al., *Slicing Aided Hyper Inference and Fine-tuning for Small Object Detection*, ICIP 2022. https://arxiv.org/abs/2202.06934
 - [cfg] Ultralytics Configuration: https://docs.ultralytics.com/usage/cfg/
@@ -99,4 +148,7 @@ under-count sistematis. Target ini dicatat di `SPEC.md`.
 - [li2023] Li et al., Front. Med. 2023. https://doi.org/10.3389/fmed.2023.1255704
 - [seite2019] Seité et al., Exp. Dermatol. 2019. https://doi.org/10.1111/exd.14022
 - [tan2006] Tan, Fung, Bulger, J. Cutan. Med. Surg. 2006;10(4):160–165. https://doi.org/10.2310/7750.2006.00044
-- Zhang et al., *Automatic acne detection model based on improved YOLOv7*, IEEE Access 2024. https://ieeexplore.ieee.org/document/10810392
+- [zhang2024] Zhang et al., *Automatic acne detection model based on improved YOLOv7*, IEEE Access 2024, DOI 10.1109/ACCESS.2024.3520641. https://ieeexplore.ieee.org/document/10810392
+- [wen2022] Wen et al., *Acne detection and severity evaluation with interpretable convolutional neural network models*, Technol. Health Care 2022. https://pmc.ncbi.nlm.nih.gov/articles/PMC9028662/
+- [ding2022] *Learning High-quality Proposals for Acne Detection*, arXiv 2022. https://arxiv.org/abs/2207.03674
+- AcneAI paper & supplement (PDF): https://papers.miccai.org/miccai-2024/042-Paper2216.html ; label ACNE04-v2: https://github.com/AIpourlapeau/acne04v2

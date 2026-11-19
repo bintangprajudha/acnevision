@@ -21,10 +21,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pandas as pd
-from ultralytics import YOLO
 
 from analysis import load_gt_boxes, match, prf
-from common import DEFAULT_WEIGHTS, MAX_DET, PROJECT_ROOT, RUNS_DIR, get_device, train_imgsz
+from common import DEFAULT_WEIGHTS, MAX_DET, PROJECT_ROOT, RUNS_DIR, get_device, load_model, train_imgsz
 
 IMG_EXT = {".jpg", ".jpeg", ".png", ".bmp"}
 # Warna BGR
@@ -111,7 +110,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     device = get_device()
-    model = YOLO(str(args.weights))
+    model = load_model(args.weights)
     imgsz = args.imgsz or train_imgsz(model)
     predict = make_predictor(args, model, imgsz, device)
     print(f"Model: {run} | mode={mode} | imgsz={imgsz} | conf={args.conf} | {len(files)} gambar -> {out}")

@@ -1,0 +1,53 @@
+# ==============================================================================
+# AcneVision - E9: training tile 2x2 dari bobot COCO (resep E3)
+# ==============================================================================
+# Hipotesis: melatih langsung pada tile (lesi tampil ~2x lebih besar) selama
+# jadwal penuh lebih baik daripada fine-tune 10 epoch (E4) untuk inferensi SAHI.
+# Satu variabel vs E3 (configs/yolov8l_960.yaml): data -> data_tiles2/data.yaml
+# (963 gambar asli + tile 2x2, 4.815 gambar train; val tile 600 gambar).
+# Dataset: python scripts/data/preprocess.py --grid 2 --overlap 0.1
+# Key `model` dan `data` relatif terhadap root project (di-resolve oleh train.py).
+# ==============================================================================
+
+model: pretrained/yolov8l.pt   # Pretrained COCO
+data: data_tiles2/data.yaml   # Tile 2x2 (satu-satunya perubahan vs E3)
+name: yolov8l_960_tiles2
+
+# --- Jadwal training ---
+epochs: 100
+patience: 25
+imgsz: 960          # Batas aman VRAM 8GB dengan batch=4
+batch: 4            # nbs=64 -> gradient accumulation otomatis 16 step
+workers: 2          # >2 memicu lonjakan RAM di Windows
+seed: 42
+deterministic: true
+
+# --- Optimizer ---
+optimizer: AdamW
+lr0: 0.001
+lrf: 0.01
+cos_lr: true
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3
+warmup_momentum: 0.8
+
+# --- Bobot loss (single-class, objek kecil) ---
+box: 10.0
+cls: 0.3
+dfl: 2.0
+
+# --- Augmentasi ---
+mosaic: 1.0
+close_mosaic: 10
+mixup: 0.1
+copy_paste: 0.0     # Run asli memakai 0.3, tetapi copy_paste hanya aktif untuk label segmentasi
+                    # (label kita bbox) sehingga no-op. Diset 0.0 agar jujur; hasil identik.
+fliplr: 0.5
+flipud: 0.5
+degrees: 10.0
+translate: 0.1
+scale: 0.5
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
