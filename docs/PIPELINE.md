@@ -1,6 +1,9 @@
 # Pipeline Model & Audit Kesesuaian Standar
 
-> Model terpilih: **YOLOv8l @ 960px** (`runs/detect/yolov8l_960`)
+> **Catatan 2026-11-19:** dokumen ini adalah audit 2026-10-24 untuk model lama (YOLOv8l resep tuning, E3). Model terpilih
+> sekarang adalah YOLOv8l dilatih pada tile 2×2 + SAHI; lihat `PIPELINE_MODEL_TERBAIK.md` dan `SPEC.md`.
+>
+> Model terpilih saat audit: **YOLOv8l @ 960px** (`runs/detect/yolov8l_960`)
 > Audit: 2026-10-24 · `ultralytics 8.4.170`, `torch 2.6.0+cu124`
 > Sumber dirujuk di bagian [Referensi](#referensi).
 

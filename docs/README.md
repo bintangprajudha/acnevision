@@ -6,7 +6,11 @@
 |---|---|---|
 | `STATE.md` | Status terkini, model terpilih, langkah berikutnya | Setiap akhir sesi kerja yang mengubah status |
 | `SPEC.md` | Dataset, model, **protokol evaluasi**, target | Hanya bila model terpilih/target/protokol berubah (keputusan pengguna) |
-| `PIPELINE.md` | Alur pipeline + audit kesesuaian standar + referensi | Bila pipeline berubah atau audit baru dilakukan |
+| `PIPELINE_MODEL_TERBAIK.md` | Penjelasan metode model terpilih (tile 2×2 + SAHI) per slide, untuk presentasi | Saat model terpilih atau angka hasilnya berubah |
+| `PIPELINE.md` | Alur pipeline + audit kesesuaian standar + referensi (audit 2026-10-24, masih membahas model lama E3) | Bila pipeline berubah atau audit baru dilakukan |
+| `report/` | Keluaran `scripts/report.py` dan `export_ranking.py`: `summary.json`, `ranking_models.csv`, `figures/` | Dibuat ulang oleh script, jangan diedit manual |
+| `../reports/`, `../research_notes/` | Laporan riset benchmark literatur ACNE04 dan catatan mentahnya | Saat riset literatur baru dilakukan |
+| `../splits/` | Daftar split train/val/test dan aturan konversi | Hanya bila data atau split berubah |
 | `EXPERIMENTS.md` | Log semua run (hipotesis, perubahan, metrik, kesimpulan) | **Setiap** run selesai, termasuk yang gagal |
 | `REPORT.md` | Laporan lengkap hasil model (+ `report/figures/`, dibuat `scripts/report.py`) | Setelah putaran eksperimen selesai |
 | `PRESENTASI.md` | Rangkuman development + konten per slide untuk `presentasi/` (dibangun `presentasi/build_deck.js`) | Saat hasil/deck berubah |

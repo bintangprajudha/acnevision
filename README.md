@@ -1,69 +1,117 @@
 # AcneVision: Deteksi & Penghitungan Lesi Jerawat (YOLOv8)
 
-Model **YOLOv8l** yang mendeteksi setiap lesi jerawat pada foto wajah dan menghitung
-jumlahnya, dilatih pada dataset **ACNE04-v2** (1.204 gambar, 32.443 lesi).
+Model **YOLOv8l** yang mendeteksi setiap lesi jerawat pada foto wajah, menghitung jumlahnya, dan menurunkan tingkat
+keparahan (Hayashi) dari jumlah itu. Dilatih dan dievaluasi pada **ACNE04-v2** (1.204 gambar, 32.443 lesi).
 
-> Fokus saat ini: **pengembangan model**. Status: `docs/STATE.md`.
+> Fokus saat ini: **pengembangan model** dan penulisan paper. Status terkini: [`docs/STATE.md`](docs/STATE.md).
 
-## Model Terpilih: YOLOv8l @ 960px
+## Model terpilih
 
-Split test (121 gambar, 3.507 lesi), protokol standar `scripts/evaluate.py`:
+**YOLOv8l dilatih pada tile 2×2, inferensi dengan SAHI 1728.** Bobot: `runs/detect/yolov8l_960_tiles2/weights/best.pt`
+(tidak ada di git; lihat [Bobot & data](#bobot--data)).
 
-| Precision | Recall | mAP@50 | mAP@50-95 | MAE counting | Inferensi (RTX 4060) |
+Hasil di **split test** (121 gambar, 3.507 lesi), `imgsz` 960, conf dipilih di val, rata-rata ± simpangan baku dari 3 seed
+(42, 7, 123). Sumber: [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md), `runs/eval/<run>/metrics.json`.
+
+| Mode inferensi | F1 | Recall | Precision | MAE (lesi/gambar) | Waktu per gambar (RTX 4060) |
 |---|---|---|---|---|---|
-| 56.31% | 48.10% | 49.80% | 19.14% | 8.69 lesi/gambar | 45 ms |
+| **SAHI 1728** (akurasi) | 0.580 ± 0.003 | 0.550 ± 0.021 | 0.615 ± 0.027 | 8.02 ± 0.33 | ±622 ms |
+| plain (cepat) | 0.524 ± 0.004 | 0.502 ± 0.017 | 0.550 ± 0.020 | 7.87 ± 0.27 | ±70 ms |
 
-Perbandingan dengan run lain: `docs/EXPERIMENTS.md`.
+Ringkasan metode untuk presentasi: [`docs/PIPELINE_MODEL_TERBAIK.md`](docs/PIPELINE_MODEL_TERBAIK.md).
+Peringkat semua model: [`docs/report/ranking_models.csv`](docs/report/ranking_models.csv).
 
-## Struktur Folder
+## Cara kerja singkat
+
+```text
+ACNE04 (gambar) + ACNE04-v2 (lingkaran)
+   -> convert_to_yolo.py : lingkaran -> kotak, split 963/120/121 (seed 42)
+   -> preprocess.py      : potong train/val jadi tile 2x2 (overlap 10%)
+   -> train.py           : YOLOv8l @ 960 dari bobot COCO, 100 epoch
+   -> evaluate.py        : inferensi SAHI 1728 + conf dipilih di val -> deteksi, counting, grading Hayashi
+```
+
+## Struktur folder
 
 ```text
 acnevision/
+├── README.md                 # Halaman ini
 ├── AGENTS.md                 # Aturan kerja agen AI di proyek ini
-├── configs/
-│   └── yolov8l_960.yaml      # Hyperparameter model terpilih (1 file = 1 eksperimen)
-├── data/                     # Dataset YOLO (images/ & labels/ di-ignore git)
-│   └── data.yaml
-├── docs/                     # Lihat docs/README.md untuk indeks & aturan
-│   ├── STATE.md  SPEC.md  PIPELINE.md  EXPERIMENTS.md  ROADMAP.md
+├── requirements.txt
+├── configs/                  # 1 file = 1 eksperimen (indeks: configs/README.md)
+├── scripts/                  # Kode: train, evaluate, predict, report (indeks: scripts/README.md)
+│   └── data/                 # Unduh data, konversi ke YOLO, tiling
+├── splits/                   # Daftar split train/val/test resmi (acne04v2_split.csv) + aturan konversi
+├── docs/                     # Dokumentasi (indeks & aturan: docs/README.md)
+│   ├── report/               # Tabel & grafik hasil (summary.json, ranking_models.csv, figures/)
 │   └── experiments/history/  # results.csv & args.yaml run lama
-├── scripts/
-│   ├── common.py             # Path, device, konstanta bersama
-│   ├── train.py              # Training dari config YAML (auto-resume)
-│   ├── evaluate.py           # Metrik deteksi (test) + counting (conf dipilih di val)
-│   ├── predict.py            # Visualisasi gambar/folder, opsi --sahi
-│   ├── report.py             # Grafik & ringkasan untuk docs/REPORT.md
-│   ├── run_experiments.ps1   # Rantai evaluasi semua varian + fine-tune E4
-│   ├── verify_env.py         # Cek CUDA & ultralytics
-│   └── data/                 # download_dataset, download_and_extract_images, convert_to_yolo
-├── pretrained/               # Bobot AWAL (yolov8l.pt COCO) untuk memulai training, di-ignore git
-├── runs/                     # Output training/eval/predict, di-ignore git
-│   ├── detect/<run>/weights/ # Bobot HASIL training per run: best.pt, last.pt
-│   ├── eval/<run>/           # metrics.json, confusion matrix, counts_test.csv
-│   └── predict/<run>_<mode>/ # Visualisasi prediksi
-├── .claude/skills/           # Skill AI-research yang relevan
-└── requirements.txt
+├── reports/                  # Laporan riset benchmark literatur ACNE04
+├── research_notes/           # Catatan mentah di balik laporan riset
+├── presentasi/               # Deck PowerPoint + pembuatnya (build_deck.js)
+├── notebooks/                # Notebook ringkasan hasil (hanya membaca runs/, jalan di CPU)
+├── references/               # Salinan lokal paper acuan (di-ignore git, berhak cipta)
+│
+│  Tidak masuk git (ada di komputer lokal):
+├── data/                     # Dataset YOLO: images/ dan labels/ (data/data.yaml ikut git)
+├── data_tiles2/              # Dataset tile 2x2 hasil preprocess.py
+├── pretrained/               # Bobot awal COCO (yolov8l.pt, dll.)
+├── runs/
+│   ├── detect/<run>/weights/ # Bobot hasil training: best.pt, last.pt
+│   ├── eval/<run>/           # metrics.json, counts_test.csv, confusion matrix
+│   └── predict/<run>/        # Gambar hasil prediksi
+└── .venv/                    # Python 3.10 (CUDA)
 ```
 
-## Penggunaan
+## Memulai
 
-```bash
-# Cek environment
+Semua perintah dijalankan dari root proyek dengan Python venv (`.venv\Scripts\python.exe`).
+
+```powershell
+# 1. Cek environment (CUDA + ultralytics)
 .venv\Scripts\python.exe scripts\verify_env.py
 
-# Training (default: configs/yolov8l_960.yaml); smoke test dengan --epochs 1 --fraction 0.02
-.venv\Scripts\python.exe scripts\train.py --cfg configs\yolov8l_960.yaml
+# 2. Data (sekali): unduh -> konversi ke YOLO -> tile 2x2
+.venv\Scripts\python.exe scripts\data\download_dataset.py
+.venv\Scripts\python.exe scripts\data\download_and_extract_images.py
+.venv\Scripts\python.exe scripts\data\convert_to_yolo.py
+.venv\Scripts\python.exe scripts\data\preprocess.py --grid 2 --overlap 0.1
 
-# Evaluasi standar -> runs/eval/<run>/metrics.json
-.venv\Scripts\python.exe scripts\evaluate.py --weights runs\detect\yolov8l_960\weights\best.pt
+# 3. Training model terpilih (uji cepat dulu: tambahkan --epochs 1 --fraction 0.02 --project runs\smoke)
+.venv\Scripts\python.exe scripts\train.py --cfg configs\yolov8l_960_tiles2.yaml
 
-# Prediksi + visualisasi -> runs/predict/
-.venv\Scripts\python.exe scripts\predict.py --source data\images\test\levle2_118.jpg
-.venv\Scripts\python.exe scripts\predict.py --source data\images\test --sahi --slice 960
+# 4. Evaluasi standar (SAHI 1728) -> runs\eval\yolov8l_960_tiles2_sahi1728\metrics.json
+.venv\Scripts\python.exe scripts\evaluate.py --weights runs\detect\yolov8l_960_tiles2\weights\best.pt --mode sahi --slice 1728
+
+# 5. Prediksi + visualisasi -> runs\predict\
+.venv\Scripts\python.exe scripts\predict.py --source data\images\test --sahi --slice 1728
 ```
 
-## Dataset
+Satu eksperimen baru: salin satu file di `configs/`, ubah **satu** variabel, beri `name` unik, lalu jalankan `train.py`.
+Training penuh memakan waktu berjam-jam (model terpilih ±650 menit).
 
-- Gambar: ACNE04 (Wu et al., ICCV 2019), via HuggingFace `Layered-Labs/ACNE04`
-- Anotasi: ACNE04-v2 (Gazeau et al., MICCAI 2024), https://github.com/AIpourlapeau/acne04v2
-- Lisensi: penggunaan akademik/riset
+## Aturan penting
+
+- **Test set hanya untuk laporan akhir.** Pemilihan epoch dan conf memakai split val.
+- **Evaluasi hanya lewat `scripts/evaluate.py`** (conf 0.001, IoU 0.7, `max_det` 1000, `imgsz` sama dengan training).
+  Angka dari protokol lain tidak dibandingkan.
+- Setiap run dicatat di [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md), termasuk yang gagal atau lebih buruk.
+- Bobot, `runs/`, dan dataset tidak masuk git (lihat `.gitignore`).
+
+## Dokumentasi: mulai dari mana?
+
+| Ingin tahu | Baca |
+|---|---|
+| Status proyek dan langkah berikutnya | [`docs/STATE.md`](docs/STATE.md) |
+| Spesifikasi, protokol evaluasi, target dan standar minimum | [`docs/SPEC.md`](docs/SPEC.md) |
+| Penjelasan metode model terbaik (bahan slide) | [`docs/PIPELINE_MODEL_TERBAIK.md`](docs/PIPELINE_MODEL_TERBAIK.md) |
+| Semua eksperimen dan hasilnya | [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) |
+| Laporan hasil lengkap | [`docs/REPORT.md`](docs/REPORT.md) |
+| Rencana eksperimen dan benchmark paper | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
+| Daftar lengkap dokumen dan aturan penulisan | [`docs/README.md`](docs/README.md) |
+
+## Bobot & data
+
+- Bobot model tidak disimpan di git (`*.pt` di-ignore). Simpan cadangan `best.pt` secara terpisah.
+- Gambar: ACNE04 (Wu dkk., ICCV 2019), via HuggingFace `Layered-Labs/ACNE04`.
+- Anotasi lesi: ACNE04-v2 (Gazeau dkk., MICCAI 2024), https://github.com/AIpourlapeau/acne04v2.
+- Lisensi: penggunaan akademik/riset.
