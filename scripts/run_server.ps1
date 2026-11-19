@@ -40,6 +40,24 @@ if (-not $NoTunnel) {
     }
 }
 
+# API key TETAP untuk endpoint internal /predict (header X-API-Key), disimpan di .env.server (di-ignore git).
+# Dibuat otomatis sekali; berikan ke tim backend lewat jalur privat. Untuk mengganti key: hapus file lalu jalankan ulang.
+$secretFile = Join-Path $root ".env.server"
+if (-not $env:ACNEVISION_API_KEY) {
+    if (-not (Test-Path $secretFile)) {
+        $bytes = New-Object byte[] 32
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+        $newKey = [Convert]::ToBase64String($bytes).TrimEnd("=").Replace("+", "-").Replace("/", "_")
+        @("# Rahasia server model AcneVision - JANGAN di-commit / dibagikan di grup.",
+          "# Key endpoint internal /predict (header X-API-Key). Berikan ke tim backend lewat jalur privat.",
+          "ACNEVISION_API_KEY=$newKey") | Set-Content -Path $secretFile -Encoding ascii
+        Write-Host "API key tetap baru dibuat di $secretFile" -ForegroundColor Yellow
+    }
+    foreach ($line in Get-Content $secretFile) {
+        if ($line -match '^\s*([A-Z_]+)\s*=\s*(.+?)\s*$') { Set-Item -Path "env:$($Matches[1])" -Value $Matches[2] }
+    }
+}
+
 $server = $null; $tunnel = $null
 try {
     Write-Host "[$(Get-Date -Format HH:mm:ss)] Memulai server (model E9 + warm-up)..." -ForegroundColor Cyan
@@ -56,8 +74,7 @@ try {
     if (-not $health) { Write-Host "Server tidak merespons /health dalam 180 detik." -ForegroundColor Red; exit 1 }
     Write-Host "[$(Get-Date -Format HH:mm:ss)] Server siap: $($health.model.name) sha256 $($health.model.weights_sha256), GPU $($health.gpu.device)" -ForegroundColor Green
     Write-Host "  Lokal : http://127.0.0.1:$Port/api/v1  (health: /health)"
-    $key = Select-String -Path (Join-Path $logDir "server.err.log") -Pattern "API key internal" | Select-Object -Last 1
-    if ($key) { Write-Host "  $($key.Line -replace '^.*?INFO ', '')" }
+    Write-Host "  API key /predict: tetap, tersimpan di .env.server (buka file itu untuk menyalinnya)"
 
     if (-not $NoTunnel) {
         Write-Host "[$(Get-Date -Format HH:mm:ss)] Membuka Cloudflare quick tunnel..." -ForegroundColor Cyan

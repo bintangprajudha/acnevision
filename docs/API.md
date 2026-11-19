@@ -30,6 +30,9 @@ VITE_USE_MOCK=false
 VITE_API_BASE_URL=https://<acak>.trycloudflare.com/api/v1
 ```
 
+- **HP dan PC server berada di jaringan berbeda**, jadi aplikasi hanya bisa menjangkau server lewat URL tunnel publik.
+  `127.0.0.1`, `localhost`, dan IP LAN hanya berlaku di PC server itu sendiri. Uji lewat tunnel dari PC server berhasil
+  (2026-11-19 19:08, capture 200 dalam 3,0 s total). Akses dari HP belum diuji.
 - **HTTPS wajib untuk aplikasi HP.** `capacitor.config.ts` memakai `androidScheme: 'https'` (origin `https://localhost`), jadi API
   `http://` (mis. IP LAN) diblokir WebView sebagai *mixed content*. Tunnel memberi URL `https://`.
 - Untuk Vite dev di PC yang sama (`http://localhost:5173`), `VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1` juga bisa.
@@ -129,8 +132,14 @@ Semua error memakai format `ApiError`: `{"error": {"code": "...", "message": "..
 
 - `GET /health` dan `GET /api/v1/health`: status, nama model, sha256 bobot, conf, `gpu.busy`, `gpu.waiting_captures`, dan batas
   upload/rate. Tidak memuat path lokal.
-- `POST /predict` dan `POST /predict/image`: untuk keperluan internal, wajib header `X-API-Key` (env `ACNEVISION_API_KEY`; bila
-  kosong dibuat acak dan dicetak saat startup). Field: `image`, `mode` (`plain`|`sahi`), `conf`. Ikut antrean capture.
+- `POST /predict` dan `POST /predict/image`: untuk keperluan internal, wajib header `X-API-Key`. Field: `image`,
+  `mode` (`plain`|`sahi`), `conf`. Ikut antrean capture, tanpa rate limit per IP.
+  - **Key tetap**: `run_server.ps1` membuat key acak sekali di `.env.server` (root repo, di-ignore git), lalu memuatnya setiap
+    kali server dijalankan. Log hanya menampilkan 4 karakter awal.
+  - Salin key dari `.env.server` dan kirim ke tim backend lewat **jalur privat** (chat pribadi, bukan grup atau git). Tim backend
+    mengisinya di `ACNE_MODEL_API_KEY` pada `.env` backend miliknya. Jangan pernah dimasukkan ke aplikasi HP.
+  - Ganti key (mis. bila bocor): hapus `.env.server`, jalankan ulang `run_server.ps1`, lalu kirim key baru.
+  - Bila `serve.py` dijalankan langsung tanpa env `ACNEVISION_API_KEY`, key dibuat acak dan berganti setiap kali start.
 - `/docs` (Swagger) mati secara bawaan; aktifkan dengan `ACNEVISION_DOCS=1`.
 
 ## 7. Keamanan dan batasan

@@ -552,7 +552,10 @@ def main():
     log.info("Model %s (sha256 %s) | imgsz=%d | device=%s | siap dalam %.1f s", args.weights.name, state["sha8"],
              state["imgsz"], state["gpu_name"], time.perf_counter() - t0)
     log.info("CORS: %s | rate/IP: %s | antrean capture maks %d", ", ".join(CORS_ORIGINS), RATE_LIMITS, MAX_QUEUE)
-    log.info("API key internal (/predict, header X-API-Key): %s", state["api_key"])
+    if os.environ.get("ACNEVISION_API_KEY"):   # key tetap: jangan tulis lengkap ke log
+        log.info("API key internal (/predict): dari env ACNEVISION_API_KEY (%s...)", state["api_key"][:4])
+    else:
+        log.info("API key internal (/predict, header X-API-Key, berganti tiap start): %s", state["api_key"])
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

@@ -23,7 +23,11 @@
    Selama belum ada named tunnel (B8), perlakukan URL sebagai konfigurasi yang bisa berubah. Jangan di-hard-code; selalu lewat `.env`.
 3. Cek server hidup: buka `<URL>/health` di browser HP. Harus muncul `"status":"ok"` dan nama model E9.
 4. Server hanya hidup selama PC tim model menyala dan jendela skrip terbuka. Sepakati jadwal uji dengan tim model.
-5. Templat `.env` siap pakai ada di `handoff/frontend.env` (salin menjadi `.env` di repo mobile) dan `handoff/backend.env`.
+5. **HP, laptop tim, dan PC server model berada di jaringan berbeda.** Selalu pakai URL tunnel `https://…/api/v1`.
+   `127.0.0.1`, `localhost`, dan IP LAN PC server **tidak bisa** dijangkau dari perangkat lain. Tunnel Cloudflare bisa
+   diakses dari jaringan mana pun (Wi-Fi lain maupun data seluler).
+6. API key `/predict` (hanya untuk backend) sekarang **tetap**. Tim model memberikannya lewat jalur privat; lihat `API.md` §6.
+7. Templat `.env` siap pakai ada di `handoff/frontend.env` (salin menjadi `.env` di repo mobile) dan `handoff/backend.env`.
    Isi rahasia (Supabase, API key) diisi masing-masing tim dan tidak di-commit.
 
 ---

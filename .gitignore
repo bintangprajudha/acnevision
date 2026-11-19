@@ -18,6 +18,8 @@ venv.bak/
 .env
 .env.local
 .env.*.local
+# Rahasia server model (API key tetap /predict); dibuat & dibaca scripts/run_server.ps1
+.env.server
 
 # ==============================================================================
 # Machine Learning / YOLO Weights & Artifacts
