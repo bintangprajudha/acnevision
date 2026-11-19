@@ -15,6 +15,7 @@ Usage:
     python scripts/predict.py --source data/images/test --sahi --slice 960
 """
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -56,35 +57,45 @@ def add_header(img, items: list):
     return canvas
 
 
+def build_sahi_model(weights, conf: float, imgsz: int, device):
+    """Model SAHI (Ultralytics) dengan threshold conf tetap; slice di-resize ke imgsz."""
+    from sahi import AutoDetectionModel
+    return AutoDetectionModel.from_pretrained(
+        model_type="ultralytics", model_path=str(weights), confidence_threshold=conf,
+        image_size=imgsz, device="cuda:0" if device != "cpu" else "cpu",
+    )
+
+
+def sahi_predict(sahi_model, image, slice_size: int):
+    """SAHI sliced inference -> (boxes xyxy, scores) dalam piksel gambar.
+
+    `image`: path (dibaca SAHI dengan cv2.imread, EXIF diterapkan) atau array RGB HWC.
+    Dipakai bersama oleh CLI ini dan scripts/serve.py agar parameternya identik."""
+    from sahi.predict import get_sliced_prediction
+    res = get_sliced_prediction(
+        str(image) if isinstance(image, (str, Path)) else image, sahi_model,
+        slice_height=slice_size, slice_width=slice_size,
+        overlap_height_ratio=0.2, overlap_width_ratio=0.2, postprocess_type="NMS",
+        postprocess_match_metric="IOU", postprocess_match_threshold=0.5, verbose=0,
+    )
+    preds = res.object_prediction_list
+    return (np.array([p.bbox.to_xyxy() for p in preds], dtype=float).reshape(-1, 4),
+            np.array([p.score.value for p in preds], dtype=float))
+
+
+def plain_predict(model, image, conf: float, imgsz: int, device, augment: bool = False):
+    """Inferensi Ultralytics satu gambar -> (boxes xyxy, scores). `image`: path atau array BGR HWC."""
+    r = model.predict(str(image) if isinstance(image, (str, Path)) else image, conf=conf, imgsz=imgsz,
+                      max_det=MAX_DET, augment=augment, device=device, verbose=False)[0]
+    return r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy()
+
+
 def make_predictor(args, model, imgsz, device):
     """Kembalikan fungsi path -> (boxes xyxy, scores)."""
     if args.sahi:
-        from sahi import AutoDetectionModel
-        from sahi.predict import get_sliced_prediction
-
-        sahi_model = AutoDetectionModel.from_pretrained(
-            model_type="ultralytics", model_path=str(args.weights), confidence_threshold=args.conf,
-            image_size=imgsz, device="cuda:0" if device != "cpu" else "cpu",   # slice di-resize ke imgsz
-        )
-
-        def predict(path):
-            res = get_sliced_prediction(
-                str(path), sahi_model, slice_height=args.slice, slice_width=args.slice,
-                overlap_height_ratio=0.2, overlap_width_ratio=0.2, postprocess_type="NMS",
-                postprocess_match_metric="IOU", postprocess_match_threshold=0.5, verbose=0,
-            )
-            preds = res.object_prediction_list
-            return (np.array([p.bbox.to_xyxy() for p in preds]).reshape(-1, 4),
-                    np.array([p.score.value for p in preds]))
-
-        return predict
-
-    def predict(path):
-        r = model.predict(str(path), conf=args.conf, imgsz=imgsz, max_det=MAX_DET,
-                          augment=args.tta, device=device, verbose=False)[0]
-        return r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy()
-
-    return predict
+        sahi_model = build_sahi_model(args.weights, args.conf, imgsz, device)
+        return lambda path: sahi_predict(sahi_model, path, args.slice)
+    return lambda path: plain_predict(model, path, args.conf, imgsz, device, augment=args.tta)
 
 
 def main():
@@ -98,6 +109,8 @@ def main():
     parser.add_argument("--sahi", action="store_true", help="Gunakan SAHI sliced inference")
     parser.add_argument("--slice", type=int, default=960, help="Ukuran patch SAHI (px)")
     parser.add_argument("--out", type=Path, default=None, help="Default: runs/predict/<run>/<source>")
+    parser.add_argument("--save-json", action="store_true",
+                        help="Simpan kotak & skor mentah per gambar ke predictions.json (uji konsistensi serving)")
     args = parser.parse_args()
 
     files = sorted(p for p in args.source.iterdir() if p.suffix.lower() in IMG_EXT) \
@@ -115,7 +128,7 @@ def main():
     predict = make_predictor(args, model, imgsz, device)
     print(f"Model: {run} | mode={mode} | imgsz={imgsz} | conf={args.conf} | {len(files)} gambar -> {out}")
 
-    rows = []
+    rows, raw = [], {}
     for path in files:
         t0 = time.perf_counter()
         boxes, scores = predict(path)
@@ -123,6 +136,10 @@ def main():
         img = cv2.imread(str(path))
         lw = line_width(img)
         row = {"image": path.name, "pred_count": len(boxes), "inference_ms": round(ms, 1)}
+        if args.save_json:
+            raw[path.name] = {"width": img.shape[1], "height": img.shape[0],
+                              "boxes": np.asarray(boxes, float).reshape(-1, 4).tolist(),
+                              "scores": np.asarray(scores, float).tolist()}
 
         if args.compare:
             # Label GT dicari di data/labels/<nama folder split>/
@@ -147,6 +164,10 @@ def main():
 
     df = pd.DataFrame(rows)
     df.to_csv(out / "predictions.csv", index=False)
+    if args.save_json:
+        meta = {"weights": str(args.weights), "mode": mode, "conf": args.conf, "imgsz": imgsz,
+                "slice": args.slice if args.sahi else None}
+        (out / "predictions.json").write_text(json.dumps({"meta": meta, "images": raw}), encoding="utf-8")
     if args.compare and len(df) > 1:
         tot = prf(df["TP"].sum(), df["FP"].sum(), df["FN"].sum())
         mae = (df["pred_count"] - df["gt_count"]).abs().mean()

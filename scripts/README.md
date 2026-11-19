@@ -9,7 +9,7 @@ menulis progres ke `runs\chain.log` (log tiap langkah: `runs\chain_<langkah>.log
 |---|---|
 | `train.py` | Training dari config YAML (`--cfg`), auto-resume; smoke test: `--epochs 1 --fraction 0.02` |
 | `evaluate.py` | **Satu-satunya** evaluasi resmi: deteksi, counting, grading Hayashi; mode `plain`, `tta`, `sahi` (`--slice`) |
-| `predict.py` | Visualisasi prediksi untuk gambar/folder; opsi `--sahi` |
+| `predict.py` | Visualisasi prediksi untuk gambar/folder; opsi `--sahi`, `--save-json` (kotak mentah). Fungsi inferensinya dipakai juga oleh `serve.py` |
 | `common.py`, `analysis.py` | Pustaka bersama: path, pemuat model, matching TP/FP/FN, AP, grading Hayashi |
 
 ## Analisis & laporan
@@ -40,11 +40,19 @@ menulis progres ke `runs\chain.log` (log tiap langkah: `runs\chain_<langkah>.log
 | `run_baseline_b1.ps1` | B1 YOLO11n @ 640 (dihentikan) |
 | `rerun_evals.ps1` | Evaluasi ulang semua varian agar `metrics.json` memuat metrik terbaru |
 
+## Serving (API untuk aplikasi mobile, lihat `docs/API.md`)
+
+| Script | Fungsi |
+|---|---|
+| `serve.py` | API FastAPI: `POST /api/v1/detect` (kontrak `DetectResponse` frontend; `capture` = SAHI 1728, `preview` = plain), `/health`, `/predict` internal |
+| `run_server.ps1` | Menjalankan `serve.py` + Cloudflare quick tunnel (HTTPS), lalu menampilkan `VITE_API_BASE_URL`; `-NoTunnel` untuk lokal saja |
+| `test_client.py` | Uji server yang sedang berjalan: bentuk respons, error, prioritas GPU, CORS, rate limit, konsistensi vs `predict.py` (gambar val) |
+| `bench_serve.py` | Benchmark latensi capture/preview lewat HTTP lokal pada 120 gambar val → `runs/serve/bench_*.json` |
+
 ## Lain-lain
 
 | Script | Fungsi |
 |---|---|
 | `verify_env.py` | Cek PyTorch dan CUDA |
-| `serve.py` | API inferensi FastAPI (di luar cakupan pengembangan model saat ini) |
 
 Folder `scripts/runs/` dan `scripts/weights/` adalah sisa unduhan otomatis Ultralytics (di-ignore git), bukan bagian kode.

@@ -7,6 +7,8 @@
 | `STATE.md` | Status terkini, model terpilih, langkah berikutnya | Setiap akhir sesi kerja yang mengubah status |
 | `SPEC.md` | Dataset, model, **protokol evaluasi**, target | Hanya bila model terpilih/target/protokol berubah (keputusan pengguna) |
 | `PIPELINE_MODEL_TERBAIK.md` | Penjelasan metode model terpilih (tile 2×2 + SAHI) per slide, untuk presentasi | Saat model terpilih atau angka hasilnya berubah |
+| `API.md` | API lokal untuk aplikasi mobile: endpoint `/api/v1/detect`, kode error, mode preview/capture, `.env` frontend, hasil uji & benchmark, temuan kontrak | Saat `scripts/serve.py` atau kontrak frontend berubah |
+| `INSTRUKSI_FRONTEND_BACKEND.md` | Tugas lanjutan tim frontend & backend agar aplikasi memakai server model dengan benar | Saat kontrak/temuan berubah |
 | `PIPELINE.md` | Alur pipeline + audit kesesuaian standar + referensi (audit 2026-10-24, masih membahas model lama E3) | Bila pipeline berubah atau audit baru dilakukan |
 | `report/` | Keluaran `scripts/report.py` dan `export_ranking.py`: `summary.json`, `ranking_models.csv`, `figures/` | Dibuat ulang oleh script, jangan diedit manual |
 | `../reports/`, `../research_notes/` | Laporan riset benchmark literatur ACNE04 dan catatan mentahnya | Saat riset literatur baru dilakukan |

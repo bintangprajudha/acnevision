@@ -1,8 +1,18 @@
 # Status Proyek
 
-> Terakhir diperbarui: 2026-11-13
+> Terakhir diperbarui: 2026-11-19
 
-## Fase saat ini: Pengembangan Model
+## Fase saat ini: Pengembangan Model + Serving API untuk aplikasi mobile
+
+- **Serving (masuk cakupan 2026-11-19, pernyataan pengguna)**: `POST /api/v1/detect` sesuai `DetectResponse` repo
+  `keannnw/acnevision-mobile@928f728`. `capture` = E9 + SAHI 1728, `preview` = plain; conf 0.21. Detail di `docs/API.md`.
+  - Uji `scripts/test_client.py`: **33/33 PASS**. Capture identik dengan `predict.py --sahi --slice 1728 --conf 0.21`
+    pada 3 gambar val.
+  - Benchmark 120 gambar val (HTTP lokal): capture foto penuh 608 ms/request (inferensi 574 ms); preview 720p 45 ms (22 gambar/detik berurutan).
+  - E2E Chrome: request sukses. Kotak tidak tampil karena frontend menganggap bbox 0–1, sedangkan server mengirim piksel
+    (keputusan pengguna: ikuti model).
+  - **Pengguna**: pasang `cloudflared` (`winget install --id Cloudflare.cloudflared`), lalu jalankan
+    `powershell -ExecutionPolicy Bypass -File scripts\run_server.ps1`. Tunnel belum diuji.
 
 - **Model terpilih (SPEC)**: **E9** (YOLOv8l @ 960, tile 2×2 dari COCO), `runs/detect/yolov8l_960_tiles2/weights/best.pt`; ditetapkan pengguna 2026-11-13 (sebelumnya E3). Mode: **E9 + SAHI 1728** (training tile dari COCO), `runs/detect/yolov8l_960_tiles2/weights/best.pt`
   (test, conf 0.21 dari val): F1 0.583 · Recall 0.557 · Precision 0.611 · AP@50 0.562 · MAE 7.78 · r 0.961 · 622 ms/gambar.

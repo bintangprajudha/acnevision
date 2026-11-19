@@ -107,6 +107,7 @@ Training penuh memakan waktu berjam-jam (model terpilih ±650 menit).
 | Semua eksperimen dan hasilnya | [`docs/EXPERIMENTS.md`](docs/EXPERIMENTS.md) |
 | Laporan hasil lengkap | [`docs/REPORT.md`](docs/REPORT.md) |
 | Rencana eksperimen dan benchmark paper | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
+| API lokal untuk aplikasi mobile (`/api/v1/detect`, tunnel, kode error) | [`docs/API.md`](docs/API.md) |
 | Daftar lengkap dokumen dan aturan penulisan | [`docs/README.md`](docs/README.md) |
 
 ## Bobot & data

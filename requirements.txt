@@ -16,5 +16,12 @@ polars
 # Opsional: sliced inference (scripts/predict.py --sahi)
 sahi>=0.11
 
+# Serving: API untuk aplikasi mobile (scripts/serve.py, docs/API.md); requests untuk test_client.py / bench_serve.py
+# Tunnel HTTPS (di luar pip): winget install --id Cloudflare.cloudflared
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+requests>=2.31
+
 # Opsional: notebook ringkasan (notebooks/AcneVision_Ringkasan.ipynb)
 ipykernel

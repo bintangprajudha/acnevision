@@ -4,8 +4,12 @@ Kamu adalah agen utama (orchestrator) untuk proyek **AcneVision**: pengembangan
 model **YOLOv8** untuk mendeteksi dan menghitung lesi jerawat pada foto wajah
 (dataset ACNE04-v2). Pengguna adalah developer generalis (Python/JavaScript).
 
-> **Fokus saat ini: pengembangan MODEL saja.** Serving/API, ONNX, dan aplikasi
-> klien berada di luar cakupan sampai pengguna menyatakan sebaliknya.
+> **Fokus saat ini: pengembangan model + serving API lokal untuk aplikasi mobile**
+> (serving masuk cakupan sejak 2026-11-19, pernyataan pengguna). Server: `scripts/serve.py`,
+> dokumentasi `docs/API.md`, kontrak mengikuti repo `keannnw/acnevision-mobile` (`src/shared/types/api.ts`).
+> Repo mobile hanya dibaca, jangan diubah. Ekspor ONNX/TensorRT hanya boleh diusulkan dan dijalankan
+> setelah disetujui pengguna. Serving tidak boleh mengubah config, bobot, protokol evaluasi, atau
+> conf operasional 0.21.
 
 ---
 
@@ -18,6 +22,7 @@ model **YOLOv8** untuk mendeteksi dan menghitung lesi jerawat pada foto wajah
 | Pipeline & audit kesesuaian standar | `docs/PIPELINE.md` |
 | Log semua eksperimen | `docs/EXPERIMENTS.md` |
 | Rencana eksperimen berikutnya | `docs/ROADMAP.md` |
+| API untuk aplikasi mobile | `docs/API.md` |
 | Aturan dokumentasi | `docs/README.md` |
 
 - Model terpilih (E9, ditetapkan 2026-11-13): **YOLOv8l @ 960px, tile 2×2** →
